@@ -140,6 +140,7 @@ let pendingName="";
 
 const url = new URL(location.href);
 const prefill = (url.searchParams.get("r")||"").toUpperCase();
+let inviteCode = /^[A-Z0-9]{4}$/.test(prefill) ? prefill : "";
 
 /* ---------------- Host-Logik ---------------- */
 function freshHostState(){
@@ -302,6 +303,7 @@ function render(){
 const head = `<h1>Fragen-<span>Impostor</span></h1>`;
 
 function renderStart(){
+  if(inviteCode) return renderInvite();
   app.innerHTML = head +
   `<p class="sub">Alle beantworten dieselbe Frage – nur einer bekommt eine andere. Findet heraus, wer lügt. Ab 3 Spielern.</p>
   <div class="card">
@@ -311,7 +313,7 @@ function renderStart(){
   </div>
   <div class="card">
     <label for="cd">Raum-Code</label>
-    <input id="cd" class="code" maxlength="4" placeholder="XXXX" autocapitalize="characters" autocomplete="off" value="${esc(prefill)}">
+    <input id="cd" class="code" maxlength="4" placeholder="XXXX" autocapitalize="characters" autocomplete="off" inputmode="text">
     <button id="jn" class="ghost">Raum beitreten</button>
   </div>
   <div class="foot">Läuft direkt zwischen den Geräten (WebRTC). Kein Konto, keine Daten auf einem Server.</div>`;
@@ -326,8 +328,37 @@ function renderStart(){
     save(); joinRoom(c,name());
   };
   cd.oninput=()=>{ cd.value=cd.value.toUpperCase().replace(/[^A-Z0-9]/g,""); };
-  if(prefill) nm.focus(); 
+  cd.onkeydown=e=>{ if(e.key==="Enter") el("jn").click(); };
 }
+
+/* Einstieg über den Einladungslink: nur Name eintragen und rein. */
+function renderInvite(){
+  app.innerHTML = head +
+  `<p class="sub">Du wurdest eingeladen</p>
+  <div class="card hi center">
+    <div style="color:var(--mut);font-size:13px">Raum</div>
+    <div class="code" style="font-size:38px">${esc(inviteCode)}</div>
+  </div>
+  <div class="card">
+    <label for="nm">Wie heißt du?</label>
+    <input id="nm" maxlength="16" placeholder="Dein Name" autocomplete="nickname" enterkeyhint="go">
+    <button id="jn">Raum beitreten</button>
+  </div>
+  <button id="own" class="ghost">Lieber einen eigenen Raum erstellen</button>
+  <div class="foot">Ab 3 Spielern kann der Host die Runde starten.</div>`;
+  const nm=el("nm");
+  nm.value = localStorage.getItem("fi_name")||"";
+  const go=()=>{
+    const n=(nm.value.trim()||"Spieler").slice(0,16);
+    localStorage.setItem("fi_name",nm.value.trim());
+    joinRoom(inviteCode,n);
+  };
+  el("jn").onclick=go;
+  nm.onkeydown=e=>{ if(e.key==="Enter") go(); };
+  el("own").onclick=()=>{ inviteCode=""; render(); nm && el("nm").focus(); };
+  nm.focus();
+}
+
 function renderConnecting(){
   app.innerHTML = head + `<div class="card center"><span class="spin"></span>Verbinde…</div>`;
 }
