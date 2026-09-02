@@ -41,7 +41,18 @@ body::after{width:60vw;height:60vw;max-width:520px;max-height:520px;background:#
 @keyframes drift2{to{transform:translate(-14vw,-12vh) scale(1.1)}}
 @media (prefers-reduced-motion:reduce){body::before,body::after{animation:none}}
 
-#app{max-width:540px;margin:0 auto;position:relative}
+#app{max-width:1060px;margin:0 auto;position:relative}
+.solo{max-width:540px;margin:0 auto}
+.wrap{display:grid;gap:0}
+.side>.card:last-child{margin-bottom:13px}
+@media(min-width:900px){
+  .wrap{grid-template-columns:minmax(0,1fr) 350px;gap:16px;align-items:start}
+  .main,.side{min-width:0}
+  .side{position:sticky;top:22px}
+  .chat-log{max-height:340px}
+  .q{font-size:24px}
+  .code-hero .val{font-size:58px}
+}
 .rise{animation:rise .34s cubic-bezier(.22,1,.36,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}}
 @media (prefers-reduced-motion:reduce){.rise{animation:none}}
@@ -112,6 +123,7 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .nm small{display:block;font-size:12px;font-weight:500;color:var(--mut);letter-spacing:.1px}
 .pts{font-size:13px;font-weight:600;color:var(--mut);flex:none}
 .pts.ok{color:var(--ok)}
+.pts.off{color:#727b93}
 .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:6px;
   vertical-align:1px;letter-spacing:.3px}
 .tag.you{background:rgba(255,255,255,.1);color:var(--mut)}
@@ -259,17 +271,21 @@ function freshState(){
   return {phase:"lobby",round:0,players:[],mainQuestion:"",impostorId:null,
           tally:{},topIds:[],caught:false,chat:[],kicked:[]};
 }
-const GRACE=20000;                       // so lange darf jemand weg sein, ohne uebersprungen zu werden
+const GRACE=18000;   // Reserve fuer stille Faelle
+const QUICK=4000;    // abgemeldet oder Herzschlag ausgeblieben: nur kurz auf Rueckkehr warten
+const BEAT=2500;     // so oft meldet sich jeder Spieler beim Host
+const DEAD=6500;     // so lange Stille, dann gilt jemand als weg
+const HOSTDEAD=14000;// so lange Stille vom Host, dann versucht der Client neu zu verbinden
 const hp=pid=>H.players.find(p=>p.pid===pid);
 const active=()=>H.players.filter(p=>p.online&&!p.waiting);
 const inRound=()=>H.players.filter(p=>!p.waiting);
 /* Wer die Runde blockiert: alle Mitspieler, die online sind oder gerade erst
    weggefallen sind (z.B. weil sie neu laden). Wer laenger weg ist, wird uebergangen. */
-const blockers=()=>inRound().filter(p=>p.online||Date.now()-(p.offSince||0)<GRACE);
+const blockers=()=>inRound().filter(p=>p.online||Date.now()-(p.offSince||0)<(p.quick?QUICK:GRACE));
 let graceTimer=null;
-function armGrace(){
+function armGrace(ms){
   clearTimeout(graceTimer);
-  graceTimer=setTimeout(()=>{ if(!H) return; checkAnswers(); checkVotes(); broadcast(); },GRACE+500);
+  graceTimer=setTimeout(()=>{ if(!H) return; checkAnswers(); checkVotes(); broadcast(); },ms);
 }
 
 function saveHost(){
@@ -286,11 +302,11 @@ function hostJoin(connId,pid,name){
   }
   let p=hp(pid);
   if(p){                                   // Wiederkehrer: alles bleibt erhalten
-    p.connId=connId; p.online=true; p.offSince=0;
+    p.connId=connId; p.online=true; p.offSince=0; p.quick=false; p.lastSeen=Date.now();
     if(name) p.name=uniqueName(name,pid);
   }else{
     p={pid,name:uniqueName(name||"Spieler",pid),score:0,answer:null,vote:null,question:"",
-       online:true,connId,waiting:H.phase!=="lobby"};
+       online:true,connId,lastSeen:Date.now(),waiting:H.phase!=="lobby"};
     H.players.push(p);
   }
   broadcast();
@@ -306,8 +322,11 @@ function hostOffline(connId){
   const p=H.players.find(x=>x.connId===connId);
   delete conns[connId];
   if(!p) return;
-  p.online=false; p.connId=null; p.offSince=Date.now();   // NICHT entfernen – Punkte bleiben
-  armGrace(); broadcast();                                 // kurze Aussetzer nicht sofort werten
+  // Wer sich abgemeldet hat (Tab geschlossen/neu geladen), haelt die Runde nur kurz auf.
+  const saidBye=p.quick&&Date.now()-(p.offSince||0)<3000;
+  p.online=false; p.connId=null;                 // NICHT entfernen – Punkte bleiben erhalten
+  if(!saidBye){ p.quick=false; p.offSince=Date.now(); }
+  armGrace(saidBye?QUICK+400:GRACE+500); broadcast();
 }
 function hostKick(pid){
   const p=hp(pid); if(!p||pid===myPid) return;
@@ -327,18 +346,19 @@ function hostStartRound(){
   H.round++; H.phase="answer"; H.mainQuestion=main; H.impostorId=imp.pid;
   H.tally={}; H.topIds=[]; H.caught=false;
   clearTimeout(graceTimer);
-  H.players.forEach(p=>{ p.answer=null; p.vote=null; p.waiting=false;
+  H.players.forEach(p=>{ p.answer=null; p.vote=null;
+    p.waiting=!p.online;                       // wer gerade weg ist, sitzt die Runde aus
     p.question=(p.pid===imp.pid)?other:main; });
   broadcast();
 }
-function checkAnswers(){
+function checkAnswers(force){
   if(H.phase!=="answer") return;
-  const b=blockers();
+  const b=force?active():blockers();
   if(b.length>=2&&b.every(p=>p.answer!=null)) H.phase="reveal";
 }
-function checkVotes(){
+function checkVotes(force){
   if(H.phase!=="vote") return;
-  const b=blockers();
+  const b=force?active():blockers();
   if(!(b.length>=2&&b.every(p=>p.vote!=null))) return;
   const voters=inRound().filter(p=>p.vote!=null);
   if(!voters.length) return;
@@ -357,6 +377,23 @@ function hostChat(pid,text){
   H.chat.push({id:uid(),pid,name:p.name,text,ts:Date.now()});
   if(H.chat.length>120) H.chat=H.chat.slice(-120);
   broadcast();
+}
+/* Der Host prueft regelmaessig, wer sich nicht mehr meldet – auf das close-Ereignis
+   von WebRTC ist kein Verlass, wenn jemand einfach den Tab zumacht. */
+let sweepTimer=null,beatCount=0;
+function hostSweep(){
+  if(!H) return;
+  let changed=false;
+  H.players.forEach(p=>{
+    if(p.pid===myPid){ p.online=true; p.lastSeen=Date.now(); return; }
+    if(p.online&&Date.now()-(p.lastSeen||0)>DEAD){
+      p.online=false; p.quick=true; p.offSince=Date.now(); changed=true;
+    }
+  });
+  const before=H.phase;
+  checkAnswers(); checkVotes();
+  if(changed||H.phase!==before){ broadcast(); return; }
+  if(++beatCount%3===0) Object.values(conns).forEach(c=>{ if(c.open){ try{c.send({t:"hb"});}catch(_){} } });
 }
 function publicState(){
   const show=H.phase==="reveal"||H.phase==="vote"||H.phase==="result";
@@ -384,6 +421,11 @@ function hostHandle(connId,pid,msg){
   if(!H||!msg) return;
   if(msg.t==="join"){ hostJoin(connId,msg.pid,msg.name); return; }
   const p=hp(pid); if(!p) return;
+  p.lastSeen=Date.now();
+  if(msg.t==="ping"){                       // Herzschlag: zurueck aus kurzer Stille
+    if(!p.online){ p.online=true; p.quick=false; p.offSince=0; if(connId) p.connId=connId; broadcast(); }
+    return;
+  }
   switch(msg.t){
     case "answer":
       if(H.phase!=="answer"||p.waiting) return;
@@ -393,6 +435,11 @@ function hostHandle(connId,pid,msg){
       if(H.phase!=="vote"||p.waiting||msg.target===pid||!hp(msg.target)) return;
       p.vote=msg.target; checkVotes(); broadcast(); return;
     case "chat": hostChat(pid,msg.text); return;
+    case "bye":                                   // Spieler verlaesst die Seite
+      p.online=false; p.quick=true; p.offSince=Date.now();
+      armGrace(QUICK+400); broadcast(); return;
+    case "force":                                 // Host: ohne die Abwesenden weiter
+      if(pid===myPid){ checkAnswers(true); checkVotes(true); broadcast(); } return;
     case "start":  if(pid===myPid&&H.phase==="lobby") hostStartRound(); return;
     case "tovote": if(pid===myPid&&H.phase==="reveal"){H.phase="vote";broadcast();} return;
     case "next":   if(pid===myPid&&H.phase==="result") hostStartRound(); return;
@@ -427,6 +474,7 @@ function claim(code,restore,attempt){
       H.players.push({pid:myPid,name:myName,score:0,answer:null,vote:null,question:"",online:true,connId:null});
     }
     screen="game"; banner=""; broadcast();
+    clearInterval(sweepTimer); sweepTimer=setInterval(hostSweep,2000);
   });
   p.on("connection",c=>{
     let pid=null;
@@ -470,11 +518,13 @@ function connectHost(){
   hostConn=c;
   const guard=setTimeout(()=>{ if(!c.open) scheduleRetry(); },9000);
   c.on("open",()=>{
-    clearTimeout(guard); retries=0; banner="";
+    clearTimeout(guard); retries=0; banner=""; lastHb=Date.now();
     screen="game"; c.send({t:"join",pid:myPid,name:myName}); render();
   });
   c.on("data",d=>{
     if(!d) return;
+    lastHb=Date.now();
+    if(d.t==="hb"){ if(banner){ banner=""; render(); } return; }
     if(d.t==="state"){ S=d.s; myQuestion=d.q||""; screen="game"; banner=""; render(); }
     else if(d.t==="kick"||d.t==="denied"){ LS.del("fi_room"); screen="kicked"; teardown(); render(); }
   });
@@ -491,6 +541,15 @@ function scheduleRetry(){
   render();
   retryTimer=setTimeout(()=>{ retryTimer=null; connectHost(); },2000);
 }
+let lastHb=Date.now();
+setInterval(()=>{                                   // Client meldet sich beim Host
+  if(isHost||!hostConn||!hostConn.open) return;
+  try{ hostConn.send({t:"ping"}); }catch(_){}
+},BEAT);
+setInterval(()=>{                                   // Client merkt, wenn der Host verstummt
+  if(isHost||screen!=="game"||retryTimer) return;
+  if(Date.now()-lastHb>HOSTDEAD){ try{hostConn&&hostConn.close();}catch(_){} scheduleRetry(); }
+},4000);
 function teardown(){ try{peer&&peer.destroy();}catch(_){} peer=null;hostConn=null; }
 function peerErr(e){
   if(e.type==="peer-unavailable") return "Diesen Raum gibt es nicht (mehr).";
@@ -520,7 +579,8 @@ function render(){
   if(!S) return viewWait();
   if(chatOpen) chatSeen=(S.chat||[]).length;
   const me=S.players.find(p=>p.pid===myPid);
-  if(S.phase==="lobby")  return viewLobby(me);
+  if(me&&me.waiting&&S.phase!=="lobby") return viewWaiting();   // Nachzuegler: nur warten
+  if(S.phase==="lobby")  return viewLobby();
   if(S.phase==="answer") return viewAnswer(me);
   if(S.phase==="reveal") return viewReveal(me);
   if(S.phase==="vote")   return viewVote(me);
@@ -531,7 +591,7 @@ function render(){
 function viewStart(){
   const saved=LS.get("fi_host",null), room=LS.get("fi_room",null);
   const fresh=o=>o&&Date.now()-o.ts<MAXAGE&&(!o.owner||o.owner===myPid);
-  paint(HEAD+
+  paint(`<div class="solo">`+HEAD+
   `<p class="sub">Alle beantworten dieselbe Frage – nur einer bekommt eine andere. Findet heraus, wer lügt.</p>`+
   (fresh(saved)?`<div class="card glow rise"><h2>Raum ${esc(saved.code)} fortsetzen</h2>
      <div class="note" style="margin-top:0">Dein letzter Raum läuft noch – Punkte und Spieler bleiben erhalten.</div>
@@ -547,7 +607,7 @@ function viewStart(){
    <div class="card rise"><label for="cd">Raum-Code</label>
      <input id="cd" class="code" maxlength="4" placeholder="XXXX" autocomplete="off" autocapitalize="characters">
      <button id="jn" class="sec">Raum beitreten</button></div>
-   <div class="foot">Läuft direkt zwischen euren Geräten.<br>Kein Konto, keine Daten auf einem Server.</div>`);
+   <div class="foot">Läuft direkt zwischen euren Geräten.<br>Kein Konto, keine Daten auf einem Server.</div></div>`);
   const nm=el("nm"),cd=el("cd");
   nm.value=LS.get("fi_name","")||"";
   const name=()=>{ const n=(nm.value.trim()||"Spieler").slice(0,16); LS.set("fi_name",nm.value.trim()); return n; };
@@ -562,35 +622,35 @@ function viewStart(){
   if(el("backx"))el("backx").onclick=()=>{ LS.del("fi_room"); render(); };
 }
 function viewInvite(){
-  paint(HEAD+
+  paint(`<div class="solo">`+HEAD+
   `<p class="sub">Du wurdest eingeladen</p>
    <div class="card glow code-hero rise"><div class="lbl">Raum</div><div class="val">${esc(inviteCode)}</div></div>
    <div class="card rise"><label for="nm">Wie heißt du?</label>
      <input id="nm" maxlength="16" placeholder="Dein Name" autocomplete="nickname" enterkeyhint="go">
      <button id="jn">Raum beitreten</button></div>
    <button id="own" class="sec">Lieber einen eigenen Raum erstellen</button>
-   <div class="foot">Ab 3 Spielern kann der Host die Runde starten.</div>`);
+   <div class="foot">Ab 3 Spielern kann der Host die Runde starten.</div></div>`);
   const nm=el("nm"); nm.value=LS.get("fi_name","")||"";
   const go=()=>{ const n=(nm.value.trim()||"Spieler").slice(0,16); LS.set("fi_name",nm.value.trim()); startClient(inviteCode,n); };
   el("jn").onclick=go; nm.onkeydown=e=>{ if(e.key==="Enter") go(); };
   el("own").onclick=()=>{ inviteCode=""; screen="start"; render(); };
   nm.focus();
 }
-function viewWait(){ paint(HEAD+`<div class="card center rise"><span class="spin"></span>Verbinde…</div>`); }
+function viewWait(){ paint(`<div class="solo">`+HEAD+`<div class="card center rise"><span class="spin"></span>Verbinde…</div></div>`); }
 function viewError(){
-  paint(HEAD+`<div class="card bad rise"><h2>Da ist was schiefgelaufen</h2><div class="note">${esc(errMsg)}</div></div>
-    <button id="rl">Von vorn anfangen</button>`);
+  paint(`<div class="solo">`+HEAD+`<div class="card bad rise"><h2>Da ist was schiefgelaufen</h2><div class="note">${esc(errMsg)}</div></div>
+    <button id="rl">Von vorn anfangen</button></div>`);
   el("rl").onclick=()=>{ LS.del("fi_room"); location.replace(location.pathname); };
 }
 function viewKicked(){
-  paint(HEAD+`<div class="card bad rise"><h2>Du bist raus</h2>
+  paint(`<div class="solo">`+HEAD+`<div class="card bad rise"><h2>Du bist raus</h2>
     <div class="note">Der Host hat dich aus dem Raum entfernt.</div></div>
-    <button id="rl">Zur Startseite</button>`);
+    <button id="rl">Zur Startseite</button></div>`);
   el("rl").onclick=()=>location.replace(location.pathname);
 }
 
 /* ---------- Spielbildschirme ---------- */
-function topbar(step){
+function topbar(){
   const unread=Math.max(0,(S.chat||[]).length-chatSeen);
   const steps=["answer","reveal","vote","result"];
   const idx=steps.indexOf(S.phase);
@@ -599,7 +659,10 @@ function topbar(step){
     ${S.round?`<span class="chip">Runde ${S.round}</span>`:""}
     <span class="chip">${S.players.filter(p=>p.online).length} online</span>
     <span class="chip btn ${unread?"act":""}" id="chattop">Chat${unread?` <span class="bdg">${unread}</span>`:""}</span>
-  </div>`+(idx>=0?`<div class="steps">${steps.map((s,i)=>`<div class="step ${i<=idx?"on":""}"></div>`).join("")}</div>`:"");
+  </div>`+(idx>=0?`<div class="steps">${steps.map((x,i)=>`<div class="step ${i<=idx?"on":""}"></div>`).join("")}</div>`:"");
+}
+function frame(main,side){
+  return topbar()+`<div class="wrap"><div class="main">${main}</div><aside class="side">${side||""}</aside></div>`;
 }
 function wire(){
   const ct=el("chattop");
@@ -612,6 +675,7 @@ function wire(){
     const send=()=>{ const v=ci.value.trim(); if(!v) return; draftChat=""; ci.value=""; act({t:"chat",text:v}); ci.focus(); };
     cs.onclick=send; ci.onkeydown=e=>{ if(e.key==="Enter") send(); };
   }
+  const f=el("force"); if(f) f.onclick=()=>act({t:"force"});
 }
 function chatCard(){
   const msgs=S.chat||[], unread=Math.max(0,msgs.length-chatSeen);
@@ -629,27 +693,51 @@ function chatCard(){
         <div class="bub"><div class="au">${esc(m.name)}</div><div class="tx">${esc(m.text)}</div></div></div>`).join("")
       :`<div class="chat-empty">Noch nichts geschrieben.</div>`}</div>
     <div class="chat-in"><input id="ci" maxlength="300" placeholder="Nachricht…" autocomplete="off" enterkeyhint="send">
-      <button id="csend">→</button></div>`+
-    `</div>`;
+      <button id="csend">→</button></div></div>`;
+}
+/* Spielerliste – je nach Phase mit Punkten, Status oder Kick-Knopf. */
+function playersCard(mode){
+  const list=mode==="lobby"?S.players:S.players.filter(p=>!p.waiting);
+  const rows=mode==="score"?[...list].sort((x,y)=>y.score-x.score):list;
+  const best=rows.length?Math.max(...rows.map(p=>p.score)):0;
+  const status=p=>{
+    if(!p.online) return `<span class="pts off">weg</span>`;
+    if(mode==="answer") return `<span class="pts ${p.answered?"ok":""}">${p.answered?"fertig":"tippt…"}</span>`;
+    if(mode==="vote")   return `<span class="pts ${p.voted?"ok":""}">${p.voted?"gewählt":"überlegt…"}</span>`;
+    return `<span class="pts">${p.score} Pkt</span>`;
+  };
+  return `<div class="card rise">
+    <h2>${mode==="score"?"Punkte":"Spieler"} (${rows.length})</h2>
+    <ul class="plist">${rows.map(p=>`<li>${avatar(p)}
+      <span class="nm">${esc(p.name)}${p.pid===myPid?'<span class="tag you">du</span>':""}${p.pid===S.hostId?'<span class="tag host">Host</span>':""}${mode==="score"&&p.score===best&&best>0?'<span class="tag win">vorn</span>':""}
+      ${p.online?"":"<small>nicht verbunden</small>"}</span>
+      ${status(p)}
+      ${mode==="lobby"&&isHost&&p.pid!==myPid?`<button class="mini" data-kick="${esc(p.pid)}">Kick</button>`:""}</li>`).join("")}</ul>
+    ${mode==="score"?`<div class="note">+1 für jeden, der den Lügner erwischt · +2 für den Lügner, wenn er durchkommt.</div>`:""}
+  </div>`;
+}
+/* Host-Knopf: weiter, ohne auf Abwesende zu warten. */
+function forceBtn(kind){
+  if(!isHost) return "";
+  const inR=S.players.filter(p=>!p.waiting);
+  const gone=inR.filter(p=>!p.online);
+  if(!gone.length) return "";
+  const done=inR.filter(p=>p.online).every(p=>kind==="answer"?p.answered:p.voted);
+  if(!done) return "";
+  return `<button id="force" class="sec">Ohne ${gone.length===1?esc(gone[0].name):gone.length+" Abwesende"} weitermachen</button>`;
 }
 
-function viewLobby(me){
+function viewLobby(){
   const link=location.origin+location.pathname+"?r="+S.code;
   const on=S.players.filter(p=>p.online).length;
-  paint(HEAD+topbar()+
-  `<div class="card glow code-hero rise"><div class="lbl">Raum-Code</div><div class="val">${esc(S.code)}</div>
-     <button id="cp" class="sec">Einladungslink kopieren</button></div>
-   <div class="card rise"><h2>Spieler (${S.players.length})</h2>
-     <ul class="plist">${S.players.map(p=>`<li>${avatar(p)}
-       <span class="nm">${esc(p.name)}${p.pid===myPid?'<span class="tag you">du</span>':""}${p.pid===S.hostId?'<span class="tag host">Host</span>':""}
-       ${p.online?"":'<small>offline – kommt gleich wieder</small>'}</span>
-       <span class="pts">${p.score} Pkt</span>
-       ${isHost&&p.pid!==myPid?`<button class="mini" data-kick="${esc(p.pid)}">Kick</button>`:""}</li>`).join("")}</ul>
-     ${on<3?`<div class="note">Es fehlen noch ${3-on} Spieler – ab 3 geht es los.</div>`:""}
-   </div>`+chatCard()+
-  (isHost?`<button id="go" ${on<3?"disabled":""}>Runde starten</button>
-           <button id="close" class="sec">Raum schließen</button>`
-         :`<div class="card center note rise">Warte auf den Host…</div>`));
+  paint(HEAD+frame(
+    `<div class="card glow code-hero rise"><div class="lbl">Raum-Code</div><div class="val">${esc(S.code)}</div>
+       <button id="cp" class="sec">Einladungslink kopieren</button></div>
+     ${on<3?`<div class="card rise note" style="margin-top:0">Es fehlen noch ${3-on} Spieler – ab 3 geht es los.</div>`:""}
+     ${isHost?`<button id="go" ${on<3?"disabled":""}>Runde starten</button>
+               <button id="close" class="sec">Raum schließen</button>`
+             :`<div class="card center note rise">Warte auf den Host…</div>`}`,
+    playersCard("lobby")+chatCard()));
   wire();
   el("cp").onclick=async e=>{
     try{ await navigator.clipboard.writeText(link); e.target.textContent="Link kopiert ✓"; }
@@ -663,88 +751,86 @@ function viewLobby(me){
     });
   }
 }
-function viewAnswer(me){
-  const done=me&&me.answered, wait=me&&me.waiting;
-  paint(HEAD+topbar()+
-  (wait
-   ?`<div class="card rise"><h2>Du bist gleich dabei</h2>
-      <div class="note" style="margin-top:0">Die Runde läuft schon. Ab der nächsten Runde spielst du mit.</div></div>`
-   :`<div class="card glow rise"><div class="qlbl">Deine Frage</div><div class="q">${esc(myQuestion)}</div></div>`+
-    (done
-     ?`<div class="card center rise"><span class="spin"></span>Warte auf die anderen…</div>
-       <div class="card rise"><ul class="plist">${S.players.filter(p=>!p.waiting).map(p=>`<li>${avatar(p)}
-         <span class="nm">${esc(p.name)}${p.pid===myPid?'<span class="tag you">du</span>':""}</span>
-         <span class="pts ${p.answered?"ok":""}">${p.answered?"fertig":"tippt…"}</span></li>`).join("")}</ul></div>`
-     :`<div class="card rise"><label for="ai">Deine Antwort – kurz halten</label>
-        <input id="ai" maxlength="80" placeholder="Antwort…" autocomplete="off" enterkeyhint="send">
-        <button id="sb">Antwort abschicken</button>
-        <div class="hint">Zeig dein Handy niemandem – nicht jeder hat dieselbe Frage.</div></div>`))
-  +chatCard());
+/* Nachzügler sehen nur einen Wartebildschirm – nichts aus der laufenden Runde. */
+function viewWaiting(){
+  paint(HEAD+frame(
+    `<div class="card glow center rise" style="padding:34px 20px">
+       <div class="big"><span class="spin" style="width:19px;height:19px"></span>Gleich geht's los</div>
+       <div class="note">Du bist im Raum <b>${esc(S.code)}</b>. Die anderen sind noch mitten in Runde ${S.round} –
+         sobald die nächste startet, bist du dabei.</div>
+     </div>`,
+    chatCard()));
   wire();
-  if(!wait&&!done){
+}
+function viewAnswer(me){
+  const done=me&&me.answered;
+  paint(HEAD+frame(
+    `<div class="card glow rise"><div class="qlbl">Deine Frage</div><div class="q">${esc(myQuestion)}</div></div>`+
+    (done?`<div class="card center rise"><span class="spin"></span>Warte auf die anderen…</div>${forceBtn("answer")}`
+         :`<div class="card rise"><label for="ai">Deine Antwort – kurz halten</label>
+             <input id="ai" maxlength="80" placeholder="Antwort…" autocomplete="off" enterkeyhint="send">
+             <button id="sb">Antwort abschicken</button>
+             <div class="hint">Zeig dein Handy niemandem – nicht jeder hat dieselbe Frage.</div></div>`),
+    playersCard("answer")+chatCard()));
+  wire();
+  if(!done){
     const ai=el("ai"); ai.focus();
     const send=()=>{ const v=ai.value.trim(); if(!v) return; draftAnswer=""; act({t:"answer",text:v}); };
     el("sb").onclick=send; ai.onkeydown=e=>{ if(e.key==="Enter") send(); };
   }
 }
 function viewReveal(){
-  const inRound=S.players.filter(p=>!p.waiting);
-  paint(HEAD+topbar()+
-  `<div class="card glow rise"><div class="qlbl">Die Hauptfrage war</div><div class="q">${esc(S.mainQuestion)}</div></div>
-   <div class="card rise"><h2>Alle Antworten</h2>
-     ${inRound.map(p=>`<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===myPid?" · du":""}</div>
-       <div class="txt">${esc(p.answer||"—")}</div></div></div>`).join("")}
-     <div class="hint">Jetzt laut diskutieren: Wessen Antwort passt nicht zur Frage?</div>
-   </div>`+chatCard()+
-  (isHost?`<button id="v">Weiter zur Abstimmung</button>`:`<div class="card center note rise">Der Host startet die Abstimmung.</div>`));
+  const inR=S.players.filter(p=>!p.waiting);
+  paint(HEAD+frame(
+    `<div class="card glow rise"><div class="qlbl">Die Hauptfrage war</div><div class="q">${esc(S.mainQuestion)}</div></div>
+     <div class="card rise"><h2>Alle Antworten</h2>
+       ${inR.map(p=>`<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===myPid?" · du":""}</div>
+         <div class="txt">${esc(p.answer||"—")}</div></div></div>`).join("")}
+       <div class="hint">Jetzt laut diskutieren: Wessen Antwort passt nicht zur Frage?</div></div>
+     ${isHost?`<button id="v">Weiter zur Abstimmung</button>`:`<div class="card center note rise">Der Host startet die Abstimmung.</div>`}`,
+    playersCard("plain")+chatCard()));
   wire();
   if(isHost) el("v").onclick=()=>act({t:"tovote"});
 }
 function viewVote(me){
-  const voted=me&&me.voted, wait=me&&me.waiting;
+  const voted=me&&me.voted;
   const others=S.players.filter(p=>!p.waiting&&p.pid!==myPid);
-  paint(HEAD+topbar()+
-  `<div class="card glow rise"><div class="qlbl">Hauptfrage</div><div class="q">${esc(S.mainQuestion)}</div></div>
-   <div class="card rise"><h2>Wer hatte die andere Frage?</h2>
-     ${wait?`<div class="note" style="margin-top:0">Du schaust diese Runde zu.</div>`
-      :voted?`<div class="center note" style="margin-top:0"><span class="spin"></span>Warte auf die anderen…</div>
-        <div class="bar"></div><ul class="plist">${S.players.filter(p=>!p.waiting).map(p=>`<li>${avatar(p)}
-          <span class="nm">${esc(p.name)}</span><span class="pts ${p.voted?"ok":""}">${p.voted?"gewählt":"überlegt…"}</span></li>`).join("")}</ul>`
-      :others.map(p=>`<button class="pick" data-v="${esc(p.pid)}">${avatar(p)}
-          <span class="nm">${esc(p.name)}<small>${esc(p.answer||"")}</small></span></button>`).join("")}
-   </div>`+chatCard());
+  paint(HEAD+frame(
+    `<div class="card glow rise"><div class="qlbl">Hauptfrage</div><div class="q">${esc(S.mainQuestion)}</div></div>
+     <div class="card rise"><h2>Wer hatte die andere Frage?</h2>
+       ${voted?`<div class="center note" style="margin-top:0"><span class="spin"></span>Warte auf die anderen…</div>`
+              :others.map(p=>`<button class="pick" data-v="${esc(p.pid)}">${avatar(p)}
+                 <span class="nm">${esc(p.name)}<small>${esc(p.answer||"")}</small></span></button>`).join("")}
+     </div>${voted?forceBtn("vote"):""}`,
+    playersCard("vote")+chatCard()));
   wire();
-  if(!voted&&!wait) app.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>act({t:"vote",target:b.dataset.v}));
+  if(!voted) app.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>act({t:"vote",target:b.dataset.v}));
 }
 function viewResult(){
   const imp=S.players.find(p=>p.pid===S.impostorId);
-  const inRound=S.players.filter(p=>!p.waiting);
-  const votesFor=pid=>inRound.filter(p=>p.vote===pid).map(p=>p.name);
-  const sorted=[...S.players].sort((a,b)=>b.score-a.score);
-  const best=sorted.length?sorted[0].score:0;
-  paint(HEAD+topbar()+
-  `<div class="card glow center rise"><div class="qlbl">Die andere Frage hatte</div>
-     <div class="big">${esc(imp?imp.name:"—")}</div>
-     <div class="note" style="margin-top:2px">${S.caught?"Erwischt.":"Durchgekommen."}</div></div>
-   <div class="card rise"><h2>Stimmen</h2>
-     ${inRound.map(p=>{ const v=votesFor(p.pid);
-       return `<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===S.impostorId?'<span class="tag imp">Lügner</span>':""}</div>
-         <div class="txt" style="font-size:15px;font-weight:500;color:${v.length?"var(--tx)":"var(--mut)"}">${v.length?esc(v.join(", ")):"keine Stimme"}</div></div></div>`;
-     }).join("")}
-   </div>
-   <div class="card rise"><h2>Punkte</h2>
-     <ul class="plist">${sorted.map(p=>`<li>${avatar(p)}
-       <span class="nm">${esc(p.name)}${p.pid===myPid?'<span class="tag you">du</span>':""}${p.score===best&&best>0?'<span class="tag win">vorn</span>':""}</span>
-       <span class="pts">${p.score} Pkt</span></li>`).join("")}</ul>
-     <div class="note">+1 für jeden, der den Lügner erwischt · +2 für den Lügner, wenn er durchkommt.</div>
-   </div>`+chatCard()+
-  (isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="sec">Zurück in den Warteraum</button>`
-         :`<div class="card center note rise">Der Host startet die nächste Runde.</div>`));
+  const inR=S.players.filter(p=>!p.waiting);
+  const votesFor=pid=>inR.filter(p=>p.vote===pid).map(p=>p.name);
+  paint(HEAD+frame(
+    `<div class="card glow center rise"><div class="qlbl">Die andere Frage hatte</div>
+       <div class="big">${esc(imp?imp.name:"—")}</div>
+       <div class="note" style="margin-top:2px">${S.caught?"Erwischt.":"Durchgekommen."}</div></div>
+     <div class="card rise"><h2>Stimmen</h2>
+       ${inR.map(p=>{ const v=votesFor(p.pid);
+         return `<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===S.impostorId?'<span class="tag imp">Lügner</span>':""}</div>
+           <div class="txt" style="font-size:15px;font-weight:500;color:${v.length?"var(--tx)":"var(--mut)"}">${v.length?esc(v.join(", ")):"keine Stimme"}</div></div></div>`;
+       }).join("")}</div>
+     ${isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="sec">Zurück in den Warteraum</button>`
+             :`<div class="card center note rise">Der Host startet die nächste Runde.</div>`}`,
+    playersCard("score")+chatCard()));
   wire();
   if(isHost){ el("nx").onclick=()=>act({t:"next"}); el("lb").onclick=()=>act({t:"lobby"}); }
 }
 
 /* ============================ Start ============================ */
+/* Beim Verlassen der Seite aktiv abmelden – dann wartet die Runde nicht unnoetig. */
+window.addEventListener("pagehide",()=>{
+  try{ if(!isHost&&hostConn&&hostConn.open) hostConn.send({t:"bye"}); }catch(_){}
+});
 (function boot(){
   const savedHost=LS.get("fi_host",null), savedRoom=LS.get("fi_room",null);
   const fresh=o=>o&&Date.now()-o.ts<MAXAGE;
