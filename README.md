@@ -15,6 +15,10 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
 
 - Nach der Abstimmung sieht jeder persönlich "Gewonnen" (grün) oder "Verloren" (rot),
   dazu beide Fragen im Vergleich – die der Gruppe und die des Lügners
+- Antwortzeit im Warteraum einstellbar: ohne Limit, 1, 3 oder 5 Minuten.
+  Läuft die Zeit ab, geht es automatisch zur Auflösung.
+- Benachrichtigungen: Im Hintergrund-Tab zeigt der Titel an, was passiert ist;
+  auf Wunsch zusätzlich echte System-Benachrichtigungen (einmalig freizugeben)
 - Chat pro Raum (jeder Raum hat seinen eigenen, Verlauf bleibt über die Runden erhalten)
 - Der Host kann Spieler im Warteraum entfernen; Entfernte kommen über den Link nicht zurück
 - Mitspieler können den Raum jederzeit selbst verlassen (Host schließt ihn stattdessen)

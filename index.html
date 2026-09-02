@@ -111,6 +111,16 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .chip b{color:var(--tx);letter-spacing:1.5px}
 .chip.act{color:#fff;background:rgba(139,92,246,.22);border-color:rgba(139,92,246,.5)}
 .chip.btn{cursor:pointer}
+.chip.clock{font-variant-numeric:tabular-nums;font-weight:700;color:var(--tx)}
+.chip.clock.hot{background:rgba(251,113,133,.24);border-color:rgba(251,113,133,.55);color:#fff;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.chip.clock.hot{animation:none}}
+.bigclock{font-size:40px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums;line-height:1.1}
+.bigclock.hot{color:var(--bad)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:2px}
+.seg button{margin:0;padding:11px 3px;font-size:14px;font-weight:600;border-radius:11px;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);box-shadow:none;color:var(--mut)}
+.seg button.on{background:var(--grad);color:#fff;border-color:transparent}
 .chip .bdg{background:var(--p);color:#fff;border-radius:99px;font-size:11px;font-weight:700;padding:1px 6px;min-width:18px;text-align:center}
 
 .steps{display:flex;gap:6px;margin-bottom:18px}
@@ -283,7 +293,7 @@ let inviteCode=/^[A-Z0-9]{4}$/.test(rawInvite)?rawInvite:"";
 /* ============================ Host-Logik ============================ */
 function freshState(){
   return {phase:"lobby",round:0,players:[],mainQuestion:"",impostorId:null,
-          tally:{},topIds:[],caught:false,chat:[],kicked:[]};
+          tally:{},topIds:[],caught:false,chat:[],kicked:[],timer:0,deadline:0};
 }
 const GRACE=18000;   // Reserve fuer stille Faelle
 const QUICK=4000;    // abgemeldet oder Herzschlag ausgeblieben: nur kurz auf Rueckkehr warten
@@ -358,6 +368,7 @@ function hostStartRound(){
   const main=flip?pair[1]:pair[0], other=flip?pair[0]:pair[1];
   const imp=act[(Math.random()*act.length)|0];
   H.round++; H.phase="answer"; H.mainQuestion=main; H.impostorId=imp.pid;
+  H.deadline=H.timer?Date.now()+H.timer*1000:0;
   H.tally={}; H.topIds=[]; H.caught=false;
   clearTimeout(graceTimer);
   H.players.forEach(p=>{ p.answer=null; p.vote=null;
@@ -404,6 +415,9 @@ function hostSweep(){
       p.online=false; p.quick=true; p.offSince=Date.now(); changed=true;
     }
   });
+  if(H.phase==="answer"&&H.deadline&&Date.now()>H.deadline){   // Zeit ist um
+    H.phase="reveal"; H.deadline=0; broadcast(); return;
+  }
   const before=H.phase;
   checkAnswers(); checkVotes();
   if(changed||H.phase!==before){ broadcast(); return; }
@@ -417,6 +431,7 @@ function publicState(){
     impostorId:H.phase==="result"?H.impostorId:null,
     impostorQuestion:H.phase==="result"?((hp(H.impostorId)||{}).question||""):"",
     tally:H.tally,topIds:H.topIds,caught:H.caught,chat:H.chat,
+    timer:H.timer||0, deadline:H.phase==="answer"?(H.deadline||0):0,
     players:H.players.map(p=>({
       pid:p.pid,name:p.name,score:p.score,online:p.online,waiting:!!p.waiting,
       answered:p.answer!=null,voted:p.vote!=null,
@@ -460,6 +475,9 @@ function hostHandle(connId,pid,msg){
     case "next":   if(pid===myPid&&H.phase==="result") hostStartRound(); return;
     case "lobby":  if(pid===myPid){H.phase="lobby";broadcast();} return;
     case "kick":   if(pid===myPid&&H.phase==="lobby") hostKick(msg.pid); return;
+    case "timer":                                 // Antwortzeit einstellen (nur Host, nur im Warteraum)
+      if(pid===myPid&&H.phase==="lobby"&&[0,60,180,300].includes(msg.sec)){ H.timer=msg.sec; broadcast(); }
+      return;
     case "leave":                                 // Spieler verlaesst den Raum freiwillig
       H.players=H.players.filter(x=>x.pid!==pid);
       checkAnswers(); checkVotes(); broadcast(); return;
@@ -483,7 +501,7 @@ function claim(code,restore,attempt){
   p.on("open",()=>{
     opened=true; peer=p; roomCode=code;
     if(restore){
-      H=restore; H.kicked=H.kicked||[]; H.chat=H.chat||[];
+      H=restore; H.kicked=H.kicked||[]; H.chat=H.chat||[]; H.timer=H.timer||0;
       const me=hp(myPid);
       if(me){ me.online=true; me.connId=null; myName=me.name; }
       else H.players.push({pid:myPid,name:myName,score:0,answer:null,vote:null,question:"",online:true,connId:null});
@@ -577,6 +595,56 @@ function peerErr(e){
 }
 
 /* ============================ Rendering ============================ */
+/* ---------- Uhr ---------- */
+const fmtTime=sec=>Math.floor(sec/60)+":"+String(sec%60).padStart(2,"0");
+const timeLeft=()=>(S&&S.deadline)?Math.max(0,Math.round((S.deadline-Date.now())/1000)):null;
+setInterval(()=>{
+  const t=timeLeft(); if(t===null) return;
+  const hot=t<=15;
+  document.querySelectorAll(".clockv").forEach(n=>{
+    n.textContent=fmtTime(t); n.classList.toggle("hot",hot);
+  });
+},500);
+
+/* ---------- Benachrichtigungen ---------- */
+const TITLE="Fragen-Impostor";
+let lastPhase=null,lastRound=0,lastChat=0,notifyOn=LS.get("fi_notify",false);
+const canNotify=()=>typeof Notification!=="undefined";
+function notify(short,body){
+  if(!document.hidden) return;
+  document.title="🔔 "+short+" · "+TITLE;
+  if(notifyOn&&canNotify()&&Notification.permission==="granted"){
+    try{ new Notification(TITLE,{body:body||short,tag:"fragen-impostor",renotify:true}); }catch(_){}
+  }
+}
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) document.title=TITLE; });
+function askNotify(){
+  if(!canNotify()) return;
+  Notification.requestPermission().then(r=>{
+    notifyOn=(r==="granted"); LS.set("fi_notify",notifyOn); render();
+  });
+}
+/* Vergleicht den neuen Zustand mit dem letzten und meldet, was passiert ist. */
+function announce(){
+  if(!S) return;
+  const chat=(S.chat||[]).length;
+  if(lastPhase!==null&&chat>lastChat){
+    const m=S.chat[chat-1];
+    if(m&&m.pid!==myPid) notify("Neue Nachricht",m.name+": "+m.text);
+  }
+  lastChat=chat;
+  if(S.phase!==lastPhase||S.round!==lastRound){
+    if(lastPhase!==null){
+      if(S.phase==="answer") notify("Deine Frage ist da","Runde "+S.round+" läuft – jetzt antworten.");
+      else if(S.phase==="reveal") notify("Auflösung","Alle Antworten sind da.");
+      else if(S.phase==="vote") notify("Abstimmung","Wer ist der Lügner?");
+      else if(S.phase==="result") notify("Ergebnis steht fest");
+      else if(S.phase==="lobby") notify("Zurück im Warteraum");
+    }
+    lastPhase=S.phase; lastRound=S.round;
+  }
+}
+
 const HEAD=`<div class="brand"><span class="mark">🕵️</span><h1>Fragen-<em>Impostor</em></h1></div>`;
 
 function paint(html){
@@ -595,6 +663,7 @@ function render(){
   if(screen==="error")      return viewError();
   if(screen==="kicked")     return viewKicked();
   if(!S) return viewWait();
+  announce();
   if(chatOpen) chatSeen=(S.chat||[]).length;
   const me=S.players.find(p=>p.pid===myPid);
   if(me&&me.waiting&&S.phase!=="lobby") return viewWaiting();   // Nachzuegler: nur warten
@@ -676,6 +745,7 @@ function topbar(){
     <span class="chip">Raum <b>${esc(S.code)}</b></span>
     ${S.round?`<span class="chip">Runde ${S.round}</span>`:""}
     <span class="chip">${S.players.filter(p=>p.online).length} online</span>
+    ${S.deadline?`<span class="chip clock"><span class="clockv">${fmtTime(timeLeft()||0)}</span></span>`:""}
     <span class="chip btn ${unread?"act":""}" id="chattop">Chat${unread?` <span class="bdg">${unread}</span>`:""}</span>
   </div>`+(idx>=0?`<div class="steps">${steps.map((x,i)=>`<div class="step ${i<=idx?"on":""}"></div>`).join("")}</div>`:"");
 }
@@ -764,6 +834,20 @@ function viewLobby(){
     `<div class="card glow code-hero rise"><div class="lbl">Raum-Code</div><div class="val">${esc(S.code)}</div>
        <button id="cp" class="sec">Einladungslink kopieren</button></div>
      ${on<3?`<div class="card rise note" style="margin-top:0">Es fehlen noch ${3-on} Spieler – ab 3 geht es los.</div>`:""}
+     <div class="card rise"><label>Antwortzeit</label>
+       ${isHost?`<div class="seg">
+           <button data-sec="0"   class="${S.timer===0?"on":""}">ohne</button>
+           <button data-sec="60"  class="${S.timer===60?"on":""}">1 Min</button>
+           <button data-sec="180" class="${S.timer===180?"on":""}">3 Min</button>
+           <button data-sec="300" class="${S.timer===300?"on":""}">5 Min</button>
+         </div>
+         <div class="note">${S.timer?"Nach Ablauf geht es automatisch zur Auflösung – wer nichts eingetippt hat, hat keine Antwort abgegeben.":"Ohne Zeitlimit: Die Runde läuft, bis alle geantwortet haben."}</div>`
+       :`<div class="q" style="font-size:19px">${S.timer?(S.timer/60===1?"1 Minute":S.timer/60+" Minuten"):"ohne Zeitlimit"}</div>
+         <div class="note">Der Host stellt die Antwortzeit ein.</div>`}
+     </div>
+     ${(canNotify()&&!notifyOn&&Notification.permission!=="denied")?`<div class="card rise"><label>Benachrichtigungen</label>
+        <div class="note" style="margin-top:0">Damit du es mitbekommst, wenn eine neue Runde startet – auch wenn der Tab im Hintergrund ist.</div>
+        <button id="notif" class="sec">Benachrichtigungen einschalten</button></div>`:""}
      ${isHost?`<button id="go" ${on<3?"disabled":""}>Runde starten</button>
                <button id="close" class="sec">Raum schließen</button>`
              :`<div class="card center note rise">Warte auf den Host…</div>`+leaveBtn()}`,
@@ -773,6 +857,8 @@ function viewLobby(){
     try{ await navigator.clipboard.writeText(link); e.target.textContent="Link kopiert ✓"; }
     catch(_){ prompt("Link zum Teilen:",link); }
   };
+  if(el("notif")) el("notif").onclick=askNotify;
+  app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>act({t:"timer",sec:+b.dataset.sec}));
   if(isHost){
     if(el("go")) el("go").onclick=()=>act({t:"start"});
     el("close").onclick=()=>{ if(confirm("Raum wirklich schließen? Alle fliegen raus.")){ LS.delMine("fi_host"); teardown(); location.replace(location.pathname); } };
@@ -796,6 +882,9 @@ function viewAnswer(me){
   const done=me&&me.answered;
   paint(HEAD+frame(
     `<div class="card glow rise"><div class="qlbl">Deine Frage</div><div class="q">${esc(myQuestion)}</div></div>`+
+    (S.deadline?`<div class="card center rise" style="padding:20px">
+        <div class="qlbl" style="margin-bottom:4px">Noch Zeit</div>
+        <div class="bigclock clockv">${fmtTime(timeLeft()||0)}</div></div>`:"")+
     (done?`<div class="card center rise"><span class="spin"></span>Warte auf die anderen…</div>${forceBtn("answer")}`
          :`<div class="card rise"><label for="ai">Deine Antwort – kurz halten</label>
              <input id="ai" maxlength="80" placeholder="Antwort…" autocomplete="off" enterkeyhint="send">
@@ -868,10 +957,20 @@ function viewResult(){
          <div class="qbox imp"><div class="k">${esc(imp?imp.name:"Der Lügner")} bekam</div>
            <div class="v">${esc(S.impostorQuestion||"—")}</div></div>
        </div></div>
-     <div class="card rise"><h2>Stimmen</h2>
-       ${inR.map(p=>{ const v=votesFor(p.pid);
-         return `<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===S.impostorId?'<span class="tag imp">Lügner</span>':""}</div>
-           <div class="txt" style="font-size:15px;font-weight:500;color:${v.length?"var(--tx)":"var(--mut)"}">${v.length?esc(v.join(", ")):"keine Stimme"}</div></div></div>`;
+     <div class="card rise"><h2>Wer hat wen gewählt</h2>
+       ${inR.map(p=>{
+         const ziel=p.vote?S.players.find(x=>x.pid===p.vote):null;
+         const richtig=ziel&&ziel.pid===S.impostorId;
+         const bekommen=votesFor(p.pid).length;
+         return `<div class="ans">${avatar(p)}
+           <div style="flex:1;min-width:0">
+             <div class="who">${esc(p.name)}${p.pid===S.impostorId?'<span class="tag imp">Lügner</span>':""}</div>
+             <div class="txt" style="font-size:15.5px">${
+               ziel?`<span style="color:var(--mut);font-weight:500">stimmte für</span> <span style="color:${richtig?"var(--ok)":"var(--tx)"}">${esc(ziel.name)}</span>${richtig?' <span style="color:var(--ok)">✓</span>':""}`
+                   :`<span style="color:var(--mut);font-weight:500">hat nicht abgestimmt</span>`}</div>
+           </div>
+           ${bekommen?`<span class="pts">${bekommen} ${bekommen===1?"Stimme":"Stimmen"}</span>`:""}
+         </div>`;
        }).join("")}</div>
      ${isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="sec">Zurück in den Warteraum</button>`
              :`<div class="card center note rise">Der Host startet die nächste Runde.</div>`+leaveBtn()}`,
