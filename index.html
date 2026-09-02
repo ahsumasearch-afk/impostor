@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fragen-Impostor</title>
+<meta name="description" content="Party-Spiel ab 3 Spielern: Alle beantworten dieselbe Frage – einer nicht. Findet den Lügner!">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0e1015; --card:#191d27; --card2:#222736; --line:#2e3446;
+    --tx:#eef1f7; --mut:#98a0b5;
+    --acc:#7c5cff; --acc2:#a58bff; --ok:#2ecc8f; --warn:#ffb547; --bad:#ff5c72;
+  }
+  body{
+    background:radial-gradient(900px 500px at 50% -10%,#1d2233 0%,var(--bg) 60%);
+    color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    min-height:100dvh;padding:20px 16px 48px;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:560px;margin:0 auto}
+  h1{font-size:26px;letter-spacing:-.5px;margin-bottom:4px}
+  h1 span{color:var(--acc2)}
+  h2{font-size:19px;margin-bottom:10px;letter-spacing:-.3px}
+  .sub{color:var(--mut);font-size:14px;margin-bottom:22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+  .card.hi{background:linear-gradient(160deg,#2a2350,#1b1f2c);border-color:#4a3d8f}
+  label{display:block;font-size:13px;color:var(--mut);margin-bottom:6px}
+  input,textarea{
+    width:100%;background:var(--card2);border:1px solid var(--line);color:var(--tx);
+    border-radius:11px;padding:13px 14px;font-size:16px;font-family:inherit;outline:none
+  }
+  input:focus,textarea:focus{border-color:var(--acc)}
+  input.code{text-transform:uppercase;letter-spacing:6px;font-weight:700;text-align:center;font-size:22px}
+  button{
+    width:100%;background:var(--acc);color:#fff;border:0;border-radius:11px;
+    padding:14px;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;
+    margin-top:10px;transition:.15s;
+  }
+  button:hover:not(:disabled){filter:brightness(1.12)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--tx)}
+  button.vote{background:var(--card2);border:1px solid var(--line);text-align:left;display:flex;justify-content:space-between;align-items:center}
+  button.vote:hover:not(:disabled){border-color:var(--acc);background:#2a3048}
+  .row{display:flex;gap:10px}.row>*{flex:1}
+  .code-box{text-align:center;padding:22px 18px}
+  .code-box .code{font-size:44px;font-weight:800;letter-spacing:10px;color:var(--acc2);margin:6px 0 2px}
+  .plist{list-style:none;margin-top:6px}
+  .plist li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .plist li:last-child{border:0}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--mut);flex:none}
+  .dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .nm{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pts{color:var(--mut);font-size:13px;flex:none}
+  .q{font-size:21px;font-weight:700;line-height:1.35;letter-spacing:-.3px}
+  .qlbl{font-size:12px;text-transform:uppercase;letter-spacing:1.4px;color:var(--acc2);margin-bottom:8px;font-weight:700}
+  .ans{padding:12px 0;border-bottom:1px solid var(--line)}
+  .ans:last-child{border:0}
+  .ans .who{font-size:12px;color:var(--mut);margin-bottom:2px}
+  .ans .txt{font-size:17px;font-weight:600}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:6px;vertical-align:middle}
+  .tag.imp{background:var(--bad);color:#fff}
+  .tag.you{background:var(--card2);color:var(--mut)}
+  .tag.host{background:#3a3160;color:var(--acc2)}
+  .note{color:var(--mut);font-size:14px;margin-top:10px}
+  .err{background:#3a1e26;border-color:#6b2f3d;color:#ffc9d1}
+  .big{font-size:22px;font-weight:800;text-align:center;margin:6px 0 2px}
+  .center{text-align:center}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .foot{color:#5d6478;font-size:12px;text-align:center;margin-top:22px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* ---------------- Fragenpaare ---------------- */
+const PAIRS = [
+["Wie viele Stunden hast du letzte Nacht geschlafen?","Wie viele Tassen Kaffee trinkst du am Tag?"],
+["Wie viel Geld gibst du pro Woche für Essen aus?","Wie viel kostet dein Handyvertrag im Monat?"],
+["Welches Tier wärst du gern?","Welches Tier würdest du niemals anfassen?"],
+["Was ist dein Lieblings-Urlaubsland?","In welchem Land würdest du nie leben wollen?"],
+["Wie oft machst du pro Woche Sport?","Wie oft bestellst du pro Woche Essen?"],
+["Was ist dein Lieblingsgetränk?","Was trinkst du, wenn du krank bist?"],
+["Welche App nutzt du am meisten?","Welche App würdest du sofort löschen?"],
+["Wie alt warst du bei deinem ersten Kuss?","Wie alt warst du, als du zum ersten Mal allein verreist bist?"],
+["Nenne eine Farbe, die dir gut steht.","Nenne eine Farbe, die du hässlich findest."],
+["Was ist dein Lieblingsfilm?","Welchen Film hast du am häufigsten gesehen?"],
+["Was würdest du mit 1000 € sofort machen?","Wofür gibst du eindeutig zu viel Geld aus?"],
+["Wie lange brauchst du morgens im Bad?","Wie lange brauchst du zur Arbeit?"],
+["Nenne eine Stadt, die du liebst.","Nenne eine Stadt, die überbewertet ist."],
+["Was isst du am liebsten zum Frühstück?","Was isst du nachts, wenn du Hunger bekommst?"],
+["Welchen Beruf wolltest du als Kind?","Welchen Beruf könntest du niemals machen?"],
+["Wie viele Menschen wohnen in deinem Haushalt?","Wie viele richtig enge Freunde hast du?"],
+["Was ist dein größtes Talent?","Worin bist du überraschend schlecht?"],
+["Welche Musikrichtung hörst du am liebsten?","Welche Musik läuft bei dir im Auto?"],
+["Wie viele Paar Schuhe besitzt du?","Wie viele Jacken hängen bei dir im Flur?"],
+["Was nervt dich im Straßenverkehr am meisten?","Was nervt dich an deinen Nachbarn?"],
+["Welches Schulfach mochtest du am liebsten?","In welchem Schulfach warst du am schlechtesten?"],
+["Was ist dein Lieblingsfeiertag?","Welchen Feiertag findest du überflüssig?"],
+["Wann gehst du normalerweise ins Bett?","Wann stehst du am Wochenende auf?"],
+["Nenne etwas, das immer in deinem Kühlschrank ist.","Nenne etwas, das du nie kaufen würdest."],
+["Was bestellst du an der Bar?","Was trinkst du, wenn du am nächsten Tag früh raus musst?"],
+["Was war dein letzter Online-Kauf?","Was liegt gerade in deinem Warenkorb?"],
+["Wie viele Kilometer fährst du am Tag?","Wie viele Schritte machst du am Tag?"],
+["Welche Serie schaust du gerade?","Welche Serie hast du abgebrochen?"],
+["Was ist deine größte Angst?","Wovor hattest du als Kind Angst?"],
+["Nenne ein Wort, das du viel zu oft benutzt.","Nenne ein Wort, das du nicht leiden kannst."],
+["Welches Körperteil tut dir gerade weh?","Welches Körperteil magst du an dir am liebsten?"],
+["Was nimmst du auf eine einsame Insel mit?","Was hast du immer in der Tasche?"],
+["Wie viel Prozent Akku hat dein Handy gerade?","Wie viel Prozent deines Geldes sparst du?"],
+["Welche Pizza bestellst du?","Welchen Belag magst du überhaupt nicht?"],
+["Wo war dein letzter Urlaub?","Wo möchtest du unbedingt mal hin?"],
+["Was ist dein Lieblingsplatz zuhause?","Wo im Haus bist du am seltensten?"],
+["Nenne einen Promi, den du treffen möchtest.","Nenne einen Promi, den du nicht ausstehen kannst."],
+["Wie lange hältst du es ohne Handy aus?","Wie lange hältst du es aus, ohne zu reden?"],
+["Was kochst du, wenn Besuch kommt?","Was kochst du, wenn du keine Lust hast?"],
+["Welches Wetter magst du am liebsten?","Bei welchem Wetter bleibst du lieber zuhause?"]
+];
+
+/* ---------------- Helfer ---------------- */
+const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const PREFIX = "fragimp-";
+const genCode = () => Array.from({length:4},()=>ALPHA[Math.floor(Math.random()*ALPHA.length)]).join("");
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const el = id => document.getElementById(id);
+const app = el("app");
+
+/* ---------------- Globaler Zustand ---------------- */
+let peer=null, isHost=false, roomCode="", myId="", myName="";
+let conns={};                 // Host: peerId -> DataConnection
+let hostConn=null;            // Client: Verbindung zum Host
+let S=null;                   // sichtbarer Spielzustand
+let H=null;                   // Host: vollständiger Zustand
+let myQuestion="";
+let screen="start";           // start | connecting | game | error
+let errMsg="";
+let pendingName="";
+
+const url = new URL(location.href);
+const prefill = (url.searchParams.get("r")||"").toUpperCase();
+let inviteCode = /^[A-Z0-9]{4}$/.test(prefill) ? prefill : "";
+
+/* ---------------- Host-Logik ---------------- */
+function freshHostState(){
+  return {phase:"lobby", round:0, players:[], mainQuestion:"", impostorId:null,
+          tally:{}, topIds:[], caught:false};
+}
+function hp(id){ return H.players.find(p=>p.id===id); }
+
+function hostAddPlayer(id,name){
+  if(hp(id)) return;
+  const taken = H.players.map(p=>p.name.toLowerCase());
+  let n = (name||"Spieler").trim().slice(0,16) || "Spieler";
+  if(taken.includes(n.toLowerCase())) n = n+" 2";
+  H.players.push({id,name:n,score:0,answer:null,vote:null,question:""});
+  broadcast();
+}
+function hostRemovePlayer(id){
+  const i = H.players.findIndex(p=>p.id===id);
+  if(i<0) return;
+  H.players.splice(i,1);
+  if(H.phase!=="lobby" && H.players.length<3){ H.phase="lobby"; }
+  else if(H.phase==="answer") maybeAllAnswered();
+  else if(H.phase==="vote") maybeAllVoted();
+  broadcast();
+}
+function hostStartRound(){
+  if(H.players.length<3) return;
+  const pair = PAIRS[Math.floor(Math.random()*PAIRS.length)];
+  const flip = Math.random()<0.5;
+  const main = flip?pair[1]:pair[0], other = flip?pair[0]:pair[1];
+  const imp = H.players[Math.floor(Math.random()*H.players.length)];
+  H.round++; H.phase="answer"; H.mainQuestion=main; H.impostorId=imp.id;
+  H.tally={}; H.topIds=[]; H.caught=false;
+  H.players.forEach(p=>{ p.answer=null; p.vote=null; p.question = (p.id===imp.id)?other:main; });
+  broadcast();
+}
+function maybeAllAnswered(){
+  if(H.phase==="answer" && H.players.length>=3 && H.players.every(p=>p.answer!=null)) H.phase="reveal";
+}
+function maybeAllVoted(){
+  if(H.phase!=="vote") return;
+  if(!H.players.every(p=>p.vote!=null)) return;
+  const t={}; H.players.forEach(p=>{ t[p.vote]=(t[p.vote]||0)+1; });
+  const max=Math.max(...Object.values(t));
+  const tops=Object.keys(t).filter(k=>t[k]===max);
+  H.tally=t; H.topIds=tops;
+  H.caught = tops.length===1 && tops[0]===H.impostorId;
+  H.players.forEach(p=>{ if(p.id!==H.impostorId && p.vote===H.impostorId) p.score+=1; });
+  if(!H.caught){ const imp=hp(H.impostorId); if(imp) imp.score+=2; }
+  H.phase="result";
+}
+
+function publicState(){
+  const showAns = H.phase==="reveal"||H.phase==="vote"||H.phase==="result";
+  return {
+    phase:H.phase, round:H.round, code:roomCode, hostId:myId,
+    mainQuestion: H.phase==="answer" ? "" : H.mainQuestion,
+    impostorId: H.phase==="result" ? H.impostorId : null,
+    tally:H.tally, topIds:H.topIds, caught:H.caught,
+    players:H.players.map(p=>({
+      id:p.id, name:p.name, score:p.score,
+      answered:p.answer!=null, voted:p.vote!=null,
+      answer: showAns ? p.answer : null,
+      vote: H.phase==="result" ? p.vote : null
+    }))
+  };
+}
+function broadcast(){
+  const s = publicState();
+  H.players.forEach(p=>{
+    if(p.id===myId){ S=s; myQuestion=p.question; return; }
+    const c=conns[p.id];
+    if(c && c.open) c.send({t:"state", s, q:p.question});
+  });
+  render();
+}
+function hostHandle(from,msg){
+  if(!H) return;
+  const p=hp(from);
+  switch(msg.t){
+    case "join": hostAddPlayer(from,msg.name); return;
+    case "answer":
+      if(H.phase!=="answer"||!p) return;
+      p.answer = String(msg.text||"").trim().slice(0,80) || "—";
+      maybeAllAnswered(); broadcast(); return;
+    case "vote":
+      if(H.phase!=="vote"||!p||msg.target===from||!hp(msg.target)) return;
+      p.vote = msg.target; maybeAllVoted(); broadcast(); return;
+    case "start":   if(from===myId && H.phase==="lobby") hostStartRound(); return;
+    case "tovote":  if(from===myId && H.phase==="reveal"){ H.phase="vote"; broadcast(); } return;
+    case "next":    if(from===myId && H.phase==="result"){ hostStartRound(); } return;
+    case "lobby":   if(from===myId){ H.phase="lobby"; broadcast(); } return;
+  }
+}
+function act(msg){ if(isHost) hostHandle(myId,msg); else if(hostConn&&hostConn.open) hostConn.send(msg); }
+
+/* ---------------- Verbindungsaufbau ---------------- */
+function fail(m){ screen="error"; errMsg=m; render(); }
+
+function createRoom(name){
+  pendingName=name; isHost=true; screen="connecting"; render();
+  tryHost(0);
+}
+function tryHost(attempt){
+  const code=genCode();
+  const p=new Peer(PREFIX+code,{debug:0});
+  p.on("open",id=>{
+    peer=p; roomCode=code; myId=id;
+    H=freshHostState(); hostAddPlayer(myId,pendingName);
+    screen="game"; broadcast();
+  });
+  p.on("connection",c=>{
+    c.on("open",()=>{ conns[c.peer]=c; });
+    c.on("data",d=>hostHandle(c.peer,d));
+    c.on("close",()=>{ delete conns[c.peer]; hostRemovePlayer(c.peer); });
+    c.on("error",()=>{});
+  });
+  p.on("error",e=>{
+    if(e.type==="unavailable-id" && attempt<6){ p.destroy(); tryHost(attempt+1); return; }
+    fail(peerErr(e));
+  });
+  p.on("disconnected",()=>{ try{p.reconnect();}catch(_){} });
+}
+function joinRoom(code,name){
+  pendingName=name; isHost=false; screen="connecting"; render();
+  const p=new Peer({debug:0});
+  let done=false;
+  p.on("open",id=>{
+    peer=p; myId=id; roomCode=code;
+    const c=p.connect(PREFIX+code,{reliable:true});
+    hostConn=c;
+    c.on("open",()=>{ done=true; screen="game"; c.send({t:"join",name:pendingName}); render(); });
+    c.on("data",d=>{ if(d.t==="state"){ S=d.s; myQuestion=d.q||""; render(); } });
+    c.on("close",()=>fail("Verbindung zum Host verloren. Der Host muss den Raum offen lassen."));
+    c.on("error",()=>{ if(!done) fail("Raum "+code+" nicht gefunden. Code prüfen – oder der Host hat die Seite geschlossen."); });
+    setTimeout(()=>{ if(!done) fail("Raum "+code+" antwortet nicht. Stimmt der Code? Läuft die Seite beim Host noch?"); },12000);
+  });
+  p.on("error",e=>{ if(!done) fail(peerErr(e)); });
+}
+function peerErr(e){
+  if(e.type==="peer-unavailable") return "Diesen Raum gibt es nicht (mehr).";
+  if(e.type==="network"||e.type==="server-error") return "Keine Verbindung zum Verbindungsserver. Internet prüfen und neu laden.";
+  if(e.type==="browser-incompatible") return "Dieser Browser unterstützt WebRTC nicht.";
+  return "Verbindungsfehler: "+(e.type||e.message||"unbekannt");
+}
+
+/* ---------------- Rendering ---------------- */
+function render(){
+  if(screen==="start")      return renderStart();
+  if(screen==="connecting") return renderConnecting();
+  if(screen==="error")      return renderError();
+  if(!S) return renderConnecting();
+  const me = S.players.find(p=>p.id===myId);
+  if(S.phase==="lobby")  return renderLobby(me);
+  if(S.phase==="answer") return renderAnswer(me);
+  if(S.phase==="reveal") return renderReveal(me);
+  if(S.phase==="vote")   return renderVote(me);
+  if(S.phase==="result") return renderResult(me);
+}
+const head = `<h1>Fragen-<span>Impostor</span></h1>`;
+
+function renderStart(){
+  if(inviteCode) return renderInvite();
+  app.innerHTML = head +
+  `<p class="sub">Alle beantworten dieselbe Frage – nur einer bekommt eine andere. Findet heraus, wer lügt. Ab 3 Spielern.</p>
+  <div class="card">
+    <label for="nm">Dein Name</label>
+    <input id="nm" maxlength="16" placeholder="z.B. Alex" autocomplete="nickname">
+    <button id="mk">Neuen Raum erstellen</button>
+  </div>
+  <div class="card">
+    <label for="cd">Raum-Code</label>
+    <input id="cd" class="code" maxlength="4" placeholder="XXXX" autocapitalize="characters" autocomplete="off" inputmode="text">
+    <button id="jn" class="ghost">Raum beitreten</button>
+  </div>
+  <div class="foot">Läuft direkt zwischen den Geräten (WebRTC). Kein Konto, keine Daten auf einem Server.</div>`;
+  const nm=el("nm"), cd=el("cd");
+  nm.value = localStorage.getItem("fi_name")||"";
+  const name=()=> (nm.value.trim()||"Spieler").slice(0,16);
+  const save=()=>localStorage.setItem("fi_name",nm.value.trim());
+  el("mk").onclick=()=>{ save(); createRoom(name()); };
+  el("jn").onclick=()=>{
+    const c=cd.value.trim().toUpperCase();
+    if(c.length<4){ cd.focus(); return; }
+    save(); joinRoom(c,name());
+  };
+  cd.oninput=()=>{ cd.value=cd.value.toUpperCase().replace(/[^A-Z0-9]/g,""); };
+  cd.onkeydown=e=>{ if(e.key==="Enter") el("jn").click(); };
+}
+
+/* Einstieg über den Einladungslink: nur Name eintragen und rein. */
+function renderInvite(){
+  app.innerHTML = head +
+  `<p class="sub">Du wurdest eingeladen</p>
+  <div class="card hi center">
+    <div style="color:var(--mut);font-size:13px">Raum</div>
+    <div class="code" style="font-size:38px">${esc(inviteCode)}</div>
+  </div>
+  <div class="card">
+    <label for="nm">Wie heißt du?</label>
+    <input id="nm" maxlength="16" placeholder="Dein Name" autocomplete="nickname" enterkeyhint="go">
+    <button id="jn">Raum beitreten</button>
+  </div>
+  <button id="own" class="ghost">Lieber einen eigenen Raum erstellen</button>
+  <div class="foot">Ab 3 Spielern kann der Host die Runde starten.</div>`;
+  const nm=el("nm");
+  nm.value = localStorage.getItem("fi_name")||"";
+  const go=()=>{
+    const n=(nm.value.trim()||"Spieler").slice(0,16);
+    localStorage.setItem("fi_name",nm.value.trim());
+    joinRoom(inviteCode,n);
+  };
+  el("jn").onclick=go;
+  nm.onkeydown=e=>{ if(e.key==="Enter") go(); };
+  el("own").onclick=()=>{ inviteCode=""; render(); nm && el("nm").focus(); };
+  nm.focus();
+}
+
+function renderConnecting(){
+  app.innerHTML = head + `<div class="card center"><span class="spin"></span>Verbinde…</div>`;
+}
+function renderError(){
+  app.innerHTML = head +
+  `<div class="card err"><b>Ups.</b><div class="note" style="color:#ffc9d1">${esc(errMsg)}</div></div>
+   <button id="rl">Neu starten</button>`;
+  el("rl").onclick=()=>location.replace(location.pathname);
+}
+
+function plist(players,mode){
+  return `<ul class="plist">`+players.map(p=>{
+    let on = mode==="answered" ? p.answered : mode==="voted" ? p.voted : true;
+    return `<li><span class="dot ${on?"on":""}"></span>
+      <span class="nm">${esc(p.name)}${p.id===myId?'<span class="tag you">du</span>':""}${p.id===S.hostId?'<span class="tag host">Host</span>':""}</span>
+      <span class="pts">${mode==="score"?p.score+" Pkt":(on?(mode==="answered"?"fertig":mode==="voted"?"gewählt":""):"…")}</span></li>`;
+  }).join("")+`</ul>`;
+}
+
+function renderLobby(me){
+  const link = location.origin+location.pathname+"?r="+S.code;
+  app.innerHTML = head +
+  `<p class="sub">Warteraum</p>
+   <div class="card hi code-box">
+     <div style="color:var(--mut);font-size:13px">Raum-Code</div>
+     <div class="code">${esc(S.code)}</div>
+     <button id="cp" class="ghost">Einladungslink kopieren</button>
+   </div>
+   <div class="card">
+     <h2>Spieler (${S.players.length})</h2>
+     ${plist(S.players,"score")}
+     ${S.players.length<3?'<div class="note">Es fehlen noch '+(3-S.players.length)+' Spieler – ab 3 geht es los.</div>':""}
+   </div>
+   ${isHost
+     ? `<button id="go" ${S.players.length<3?"disabled":""}>Runde starten</button>`
+     : `<div class="card center note">Warte auf den Host…</div>`}`;
+  el("cp").onclick=async e=>{
+    try{ await navigator.clipboard.writeText(link); e.target.textContent="Link kopiert ✓"; }
+    catch(_){ prompt("Link zum Teilen:",link); }
+  };
+  if(isHost && el("go")) el("go").onclick=()=>act({t:"start"});
+}
+
+function renderAnswer(me){
+  const done = me && me.answered;
+  app.innerHTML = head +
+  `<p class="sub">Runde ${S.round} · Raum ${esc(S.code)}</p>
+   <div class="card hi">
+     <div class="qlbl">Deine Frage</div>
+     <div class="q">${esc(myQuestion)}</div>
+   </div>` +
+  (done
+   ? `<div class="card center"><span class="spin"></span>Warte auf die anderen…</div>
+      <div class="card">${plist(S.players,"answered")}</div>`
+   : `<div class="card">
+        <label for="ai">Deine Antwort (kurz halten!)</label>
+        <input id="ai" maxlength="80" placeholder="Antwort…" autocomplete="off">
+        <button id="sb">Antwort abschicken</button>
+        <div class="note">Zeig dein Handy niemandem – nicht jeder hat dieselbe Frage.</div>
+      </div>`);
+  if(!done){
+    const ai=el("ai"); ai.focus();
+    const send=()=>{ const v=ai.value.trim(); if(!v) return; act({t:"answer",text:v}); };
+    el("sb").onclick=send;
+    ai.onkeydown=e=>{ if(e.key==="Enter") send(); };
+  }
+}
+
+function renderReveal(){
+  app.innerHTML = head +
+  `<p class="sub">Runde ${S.round} · Auflösung der Antworten</p>
+   <div class="card hi">
+     <div class="qlbl">Die Hauptfrage war</div>
+     <div class="q">${esc(S.mainQuestion)}</div>
+   </div>
+   <div class="card">
+     <h2>Alle Antworten</h2>
+     ${S.players.map(p=>`<div class="ans"><div class="who">${esc(p.name)}${p.id===myId?" (du)":""}</div><div class="txt">${esc(p.answer||"—")}</div></div>`).join("")}
+   </div>
+   <div class="card note">Jetzt mündlich diskutieren: Wessen Antwort passt nicht zur Frage?</div>
+   ${isHost?`<button id="v">Weiter zur Abstimmung</button>`:`<div class="card center note">Der Host startet die Abstimmung.</div>`}`;
+  if(isHost) el("v").onclick=()=>act({t:"tovote"});
+}
+
+function renderVote(me){
+  const voted = me && me.voted;
+  app.innerHTML = head +
+  `<p class="sub">Runde ${S.round} · Abstimmung</p>
+   <div class="card hi"><div class="qlbl">Hauptfrage</div><div class="q">${esc(S.mainQuestion)}</div></div>
+   <div class="card">
+     <h2>Wer hatte die andere Frage?</h2>
+     ${voted
+       ? `<div class="center note"><span class="spin"></span>Warte auf die anderen…</div>`+plist(S.players,"voted")
+       : S.players.filter(p=>p.id!==myId).map(p=>
+           `<button class="vote" data-id="${esc(p.id)}"><span>${esc(p.name)}</span><span class="pts">${esc(p.answer||"")}</span></button>`).join("")}
+   </div>`;
+  if(!voted) app.querySelectorAll("button.vote").forEach(b=>{
+    b.onclick=()=>act({t:"vote",target:b.dataset.id});
+  });
+}
+
+function renderResult(){
+  const imp = S.players.find(p=>p.id===S.impostorId);
+  const votesFor = id => S.players.filter(p=>p.vote===id).map(p=>p.name);
+  const sorted = [...S.players].sort((a,b)=>b.score-a.score);
+  app.innerHTML = head +
+  `<p class="sub">Runde ${S.round} · Ergebnis</p>
+   <div class="card hi center">
+     <div class="qlbl">Die andere Frage hatte</div>
+     <div class="big">${esc(imp?imp.name:"—")}</div>
+     <div class="note">${S.caught?"Erwischt! 🎯":"Durchgekommen! 😈"}</div>
+   </div>
+   <div class="card">
+     <h2>Stimmen</h2>
+     ${S.players.map(p=>{
+        const v=votesFor(p.id);
+        return `<div class="ans"><div class="who">${esc(p.name)}${p.id===S.impostorId?'<span class="tag imp">Lügner</span>':""}</div>
+        <div class="txt" style="font-size:15px;color:${v.length?"var(--tx)":"var(--mut)"}">${v.length?esc(v.join(", ")):"keine Stimme"}</div></div>`;
+     }).join("")}
+   </div>
+   <div class="card"><h2>Punkte</h2>${plist(sorted,"score")}
+     <div class="note">+1 für jeden, der den Lügner erwischt · +2 für den Lügner, wenn er durchkommt.</div>
+   </div>
+   ${isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="ghost">Zurück in den Warteraum</button>`
+           :`<div class="card center note">Der Host startet die nächste Runde.</div>`}`;
+  if(isHost){ el("nx").onclick=()=>act({t:"next"}); el("lb").onclick=()=>act({t:"lobby"}); }
+}
+
+window.addEventListener("beforeunload",e=>{
+  if(isHost && H && H.players.length>1){ e.preventDefault(); e.returnValue=""; }
+});
+
+render();
+</script>
+</body>
+</html>
