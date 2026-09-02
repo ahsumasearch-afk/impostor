@@ -17,6 +17,7 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
   dazu beide Fragen im Vergleich – die der Gruppe und die des Lügners
 - Chat pro Raum (jeder Raum hat seinen eigenen, Verlauf bleibt über die Runden erhalten)
 - Der Host kann Spieler im Warteraum entfernen; Entfernte kommen über den Link nicht zurück
+- Mitspieler können den Raum jederzeit selbst verlassen (Host schließt ihn stattdessen)
 - Neuladen ändert nichts: Jeder Tab hat eine eigene Identität, die einen Reload überlebt –
   Punkte, Name und Platz im Raum bleiben. Auch der Host kann neu laden, der Raum lebt weiter.
 - Breites zweispaltiges Layout ab 900 px, auf dem Handy alles untereinander

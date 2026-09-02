@@ -235,7 +235,9 @@ const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 const LS={
   get(k,d){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(_){return d;} },
   set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(_){} },
-  del(k){ try{localStorage.removeItem(k);}catch(_){} }
+  del(k){ try{localStorage.removeItem(k);}catch(_){} },
+  /* Nur loeschen, was diesem Tab gehoert – mehrere Tabs teilen sich den Speicher. */
+  delMine(k){ const o=this.get(k,null); if(o&&o.owner&&o.owner!==myPid) return; this.del(k); }
 };
 function hue(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return h; }
 function avatar(p,cls){
@@ -458,6 +460,9 @@ function hostHandle(connId,pid,msg){
     case "next":   if(pid===myPid&&H.phase==="result") hostStartRound(); return;
     case "lobby":  if(pid===myPid){H.phase="lobby";broadcast();} return;
     case "kick":   if(pid===myPid&&H.phase==="lobby") hostKick(msg.pid); return;
+    case "leave":                                 // Spieler verlaesst den Raum freiwillig
+      H.players=H.players.filter(x=>x.pid!==pid);
+      checkAnswers(); checkVotes(); broadcast(); return;
   }
 }
 function act(msg){
@@ -539,7 +544,7 @@ function connectHost(){
     lastHb=Date.now();
     if(d.t==="hb"){ if(banner){ banner=""; render(); } return; }
     if(d.t==="state"){ S=d.s; myQuestion=d.q||""; screen="game"; banner=""; render(); }
-    else if(d.t==="kick"||d.t==="denied"){ LS.del("fi_room"); screen="kicked"; teardown(); render(); }
+    else if(d.t==="kick"||d.t==="denied"){ LS.delMine("fi_room"); screen="kicked"; teardown(); render(); }
   });
   c.on("close",()=>{ clearTimeout(guard); scheduleRetry(); });
   c.on("error",()=>{ clearTimeout(guard); scheduleRetry(); });
@@ -624,15 +629,15 @@ function viewStart(){
   const nm=el("nm"),cd=el("cd");
   nm.value=LS.get("fi_name","")||"";
   const name=()=>{ const n=(nm.value.trim()||"Spieler").slice(0,16); LS.set("fi_name",nm.value.trim()); return n; };
-  el("mk").onclick=()=>{ LS.del("fi_host"); LS.del("fi_room"); startHost(name()); };
-  el("jn").onclick=()=>{ const c=cd.value.trim().toUpperCase(); if(c.length<4){cd.focus();return;} LS.del("fi_host"); startClient(c,name()); };
+  el("mk").onclick=()=>{ LS.delMine("fi_host"); LS.delMine("fi_room"); startHost(name()); };
+  el("jn").onclick=()=>{ const c=cd.value.trim().toUpperCase(); if(c.length<4){cd.focus();return;} LS.delMine("fi_host"); startClient(c,name()); };
   cd.oninput=()=>cd.value=cd.value.toUpperCase().replace(/[^A-Z0-9]/g,"");
   cd.onkeydown=e=>{ if(e.key==="Enter") el("jn").click(); };
   nm.onkeydown=e=>{ if(e.key==="Enter") el("mk").click(); };
   if(el("res"))  el("res").onclick=()=>startHost(LS.get("fi_name","Host"),saved);
-  if(el("resx")) el("resx").onclick=()=>{ LS.del("fi_host"); render(); };
+  if(el("resx")) el("resx").onclick=()=>{ LS.delMine("fi_host"); render(); };
   if(el("back")) el("back").onclick=()=>startClient(room.code,room.name);
-  if(el("backx"))el("backx").onclick=()=>{ LS.del("fi_room"); render(); };
+  if(el("backx"))el("backx").onclick=()=>{ LS.delMine("fi_room"); render(); };
 }
 function viewInvite(){
   paint(`<div class="solo">`+HEAD+
@@ -653,7 +658,7 @@ function viewWait(){ paint(`<div class="solo">`+HEAD+`<div class="card center ri
 function viewError(){
   paint(`<div class="solo">`+HEAD+`<div class="card bad rise"><h2>Da ist was schiefgelaufen</h2><div class="note">${esc(errMsg)}</div></div>
     <button id="rl">Von vorn anfangen</button></div>`);
-  el("rl").onclick=()=>{ LS.del("fi_room"); location.replace(location.pathname); };
+  el("rl").onclick=()=>{ LS.delMine("fi_room"); location.replace(location.pathname); };
 }
 function viewKicked(){
   paint(`<div class="solo">`+HEAD+`<div class="card bad rise"><h2>Du bist raus</h2>
@@ -683,6 +688,7 @@ function wire(){
     setTimeout(()=>{ const c=el("chatcard"); if(c) c.scrollIntoView({behavior:"smooth",block:"end"}); },60); };
   const th=el("chathead");
   if(th) th.onclick=()=>{ chatOpen=!chatOpen; LS.set("fi_chatopen",chatOpen); render(); };
+  wireLeave();
   const cs=el("csend"), ci=el("ci");
   if(cs&&ci){
     const send=()=>{ const v=ci.value.trim(); if(!v) return; draftChat=""; ci.value=""; act({t:"chat",text:v}); ci.focus(); };
@@ -729,6 +735,17 @@ function playersCard(mode){
     ${mode==="score"?`<div class="note">+1 für jeden, der den Lügner erwischt · +2 für den Lügner, wenn er durchkommt.</div>`:""}
   </div>`;
 }
+/* Raum verlassen – fuer alle ausser dem Host, der stattdessen schliesst. */
+function leaveBtn(){ return isHost?"":`<button id="leave" class="sec">Raum verlassen</button>`; }
+function wireLeave(){
+  const b=el("leave"); if(!b) return;
+  b.onclick=()=>{
+    if(!confirm("Raum wirklich verlassen? Deine Punkte in diesem Raum sind dann weg.")) return;
+    act({t:"leave"});
+    LS.delMine("fi_room");
+    setTimeout(()=>{ teardown(); location.replace(location.pathname); },250);
+  };
+}
 /* Host-Knopf: weiter, ohne auf Abwesende zu warten. */
 function forceBtn(kind){
   if(!isHost) return "";
@@ -749,7 +766,7 @@ function viewLobby(){
      ${on<3?`<div class="card rise note" style="margin-top:0">Es fehlen noch ${3-on} Spieler – ab 3 geht es los.</div>`:""}
      ${isHost?`<button id="go" ${on<3?"disabled":""}>Runde starten</button>
                <button id="close" class="sec">Raum schließen</button>`
-             :`<div class="card center note rise">Warte auf den Host…</div>`}`,
+             :`<div class="card center note rise">Warte auf den Host…</div>`+leaveBtn()}`,
     playersCard("lobby")+chatCard()));
   wire();
   el("cp").onclick=async e=>{
@@ -758,7 +775,7 @@ function viewLobby(){
   };
   if(isHost){
     if(el("go")) el("go").onclick=()=>act({t:"start"});
-    el("close").onclick=()=>{ if(confirm("Raum wirklich schließen? Alle fliegen raus.")){ LS.del("fi_host"); teardown(); location.replace(location.pathname); } };
+    el("close").onclick=()=>{ if(confirm("Raum wirklich schließen? Alle fliegen raus.")){ LS.delMine("fi_host"); teardown(); location.replace(location.pathname); } };
     app.querySelectorAll("[data-kick]").forEach(b=>b.onclick=()=>{
       if(confirm("Diesen Spieler entfernen?")) act({t:"kick",pid:b.dataset.kick});
     });
@@ -771,7 +788,7 @@ function viewWaiting(){
        <div class="big"><span class="spin" style="width:19px;height:19px"></span>Gleich geht's los</div>
        <div class="note">Du bist im Raum <b>${esc(S.code)}</b>. Die anderen sind noch mitten in Runde ${S.round} –
          sobald die nächste startet, bist du dabei.</div>
-     </div>`,
+     </div>`+leaveBtn(),
     chatCard()));
   wire();
 }
@@ -857,7 +874,7 @@ function viewResult(){
            <div class="txt" style="font-size:15px;font-weight:500;color:${v.length?"var(--tx)":"var(--mut)"}">${v.length?esc(v.join(", ")):"keine Stimme"}</div></div></div>`;
        }).join("")}</div>
      ${isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="sec">Zurück in den Warteraum</button>`
-             :`<div class="card center note rise">Der Host startet die nächste Runde.</div>`}`,
+             :`<div class="card center note rise">Der Host startet die nächste Runde.</div>`+leaveBtn()}`,
     playersCard("score")+chatCard()));
   wire();
   if(isHost){ el("nx").onclick=()=>act({t:"next"}); el("lb").onclick=()=>act({t:"lobby"}); }
