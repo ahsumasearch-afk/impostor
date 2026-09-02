@@ -44,13 +44,39 @@ body::after{width:60vw;height:60vw;max-width:520px;max-height:520px;background:#
 #app{max-width:1060px;margin:0 auto;position:relative}
 .solo{max-width:540px;margin:0 auto}
 .wrap{display:grid;gap:0}
-.side>.card:last-child{margin-bottom:13px}
+
+/* Spielerliste: auf dem Handy ein Panel, das von rechts hereinfaehrt */
+.colA{position:fixed;top:0;right:0;bottom:0;width:min(86vw,350px);z-index:60;
+  background:#0d0f17;border-left:1px solid var(--line);padding:16px 15px;overflow-y:auto;
+  transform:translateX(102%);transition:transform .26s cubic-bezier(.22,1,.36,1);
+  box-shadow:-24px 0 60px rgba(0,0,0,.55)}
+body.pl-open .colA{transform:none}
+.scrim{position:fixed;inset:0;background:rgba(4,5,10,.62);z-index:55;opacity:0;
+  pointer-events:none;transition:opacity .26s}
+body.pl-open .scrim{opacity:1;pointer-events:auto}
+.closex{display:block;width:auto;margin:0 0 12px auto;padding:9px 15px;font-size:14px;
+  border-radius:10px;background:rgba(255,255,255,.07);border:1px solid var(--line);
+  box-shadow:none;color:var(--mut)}
+.only-mobile{display:inline-flex}
+.chat-log{max-height:46vh}
+
 @media(min-width:900px){
-  .wrap{grid-template-columns:minmax(0,1fr) 350px;gap:16px;align-items:start}
-  .main,.side{min-width:0}
-  .side{position:sticky;top:22px}
-  .chat-log{max-height:340px}
+  /* Feste Bildschirmhoehe: Kopf oben, darunter drei Spalten, die einzeln scrollen. */
+  body{height:100dvh;overflow:hidden;padding:20px 18px 18px}
+  #app{height:100%;display:flex;flex-direction:column}
+  .wrap{grid-template-columns:270px minmax(0,1fr) 350px;gap:16px;flex:1;min-height:0}
+  .main{grid-column:2;grid-row:1;min-width:0;height:100%;overflow-y:auto;padding-right:4px}
+  .colA{grid-column:1;grid-row:1;position:static;inset:auto;transform:none;width:auto;height:100%;
+    background:none;border:0;padding:0 4px 0 0;box-shadow:none;overflow-y:auto;z-index:1}
+  .colB{grid-column:3;grid-row:1;min-width:0;height:100%;display:flex;flex-direction:column}
+  .scrim,.closex,.only-mobile,.chip.only-mobile{display:none}
+  .colB .chatfull{display:flex;flex-direction:column;flex:1;min-height:0;margin-bottom:0}
+  .colB .chatfull .chat-log{max-height:none;flex:1;min-height:0}
+  .main::-webkit-scrollbar,.colA::-webkit-scrollbar,.chat-log::-webkit-scrollbar{width:8px}
+  .main::-webkit-scrollbar-thumb,.colA::-webkit-scrollbar-thumb,.chat-log::-webkit-scrollbar-thumb{
+    background:rgba(255,255,255,.13);border-radius:99px}
   .q{font-size:24px}
+  .qhero .q{font-size:40px}
   .code-hero .val{font-size:58px}
 }
 .rise{animation:rise .34s cubic-bezier(.22,1,.36,1) both}
@@ -132,6 +158,15 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .code-hero .val{font-size:52px;font-weight:800;letter-spacing:12px;line-height:1.25;padding-left:12px;
   background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 
+/* Die grosse Fragenkarte. ACHTUNG: Sie sieht fuer JEDEN gleich aus –
+   der Impostor darf an nichts erkennen, dass er eine andere Frage hat. */
+.qhero{padding:30px 24px 32px;border-radius:24px;
+  background:linear-gradient(155deg,rgba(139,92,246,.30),rgba(34,211,238,.13));
+  border:1px solid rgba(139,92,246,.55);
+  box-shadow:0 20px 60px rgba(99,102,241,.24),inset 0 1px 0 rgba(255,255,255,.08)}
+.qhero .qlbl{font-size:12px;letter-spacing:2.6px;margin-bottom:12px;color:#ddd6fe}
+.qhero .q{font-size:30px;line-height:1.2;letter-spacing:-.9px;font-weight:800}
+@media(min-width:520px){.qhero .q{font-size:34px}}
 .qlbl{font-size:11.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#c4b5fd;margin-bottom:9px}
 .q{font-size:22px;font-weight:700;line-height:1.32;letter-spacing:-.4px}
 
@@ -606,18 +641,56 @@ setInterval(()=>{
   });
 },500);
 
+/* ---------- Ton ---------- */
+let soundOn=LS.get("fi_sound",true), ac=null;
+function beep(kind){
+  if(!soundOn) return;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    ac=ac||new AC(); if(ac.state==="suspended") ac.resume();
+    const t=ac.currentTime;
+    const noten = kind==="chat"?[[880,0]]
+               : kind==="soft"?[[523,0],[698,.12]]
+               : [[659,0],[988,.14],[1319,.28]];      // Aufruf: dreitoenig, faellt auf
+    noten.forEach(([f,d])=>{
+      const o=ac.createOscillator(), g=ac.createGain();
+      o.type="sine"; o.frequency.value=f;
+      g.gain.setValueAtTime(.0001,t+d);
+      g.gain.exponentialRampToValueAtTime(kind==="chat"?.12:.2,t+d+.02);
+      g.gain.exponentialRampToValueAtTime(.0001,t+d+.32);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t+d); o.stop(t+d+.34);
+    });
+  }catch(_){}
+}
+
 /* ---------- Benachrichtigungen ---------- */
 const TITLE="Fragen-Impostor";
 let lastPhase=null,lastRound=0,lastChat=0,notifyOn=LS.get("fi_notify",false);
 const canNotify=()=>typeof Notification!=="undefined";
-function notify(short,body){
-  if(!document.hidden) return;
-  document.title="🔔 "+short+" · "+TITLE;
-  if(notifyOn&&canNotify()&&Notification.permission==="granted"){
+
+/* Was gerade zu tun ist – steht immer im Tab-Titel. */
+function stateTitle(){
+  if(!S) return TITLE;
+  const me=S.players.find(p=>p.pid===myPid);
+  if(me&&me.waiting) return "Warten auf die nächste Runde";
+  if(S.phase==="answer") return me&&me.answered?"Warten auf die anderen":"⏳ Jetzt antworten!";
+  if(S.phase==="reveal") return "💬 Auflösung – jetzt diskutieren";
+  if(S.phase==="vote")   return me&&me.voted?"Warten auf die anderen":"🗳️ Jetzt abstimmen!";
+  if(S.phase==="result") return "🏆 Ergebnis";
+  return "Warteraum";
+}
+function updateTitle(){
+  const unread=document.hidden?Math.max(0,(S?(S.chat||[]).length:0)-chatSeen):0;
+  document.title=(unread?"("+unread+") ":"")+stateTitle()+" · "+TITLE;
+}
+function notify(short,body,sound){
+  beep(sound||"alert");
+  if(document.hidden&&notifyOn&&canNotify()&&Notification.permission==="granted"){
     try{ new Notification(TITLE,{body:body||short,tag:"fragen-impostor",renotify:true}); }catch(_){}
   }
 }
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden) document.title=TITLE; });
+document.addEventListener("visibilitychange",updateTitle);
 function askNotify(){
   if(!canNotify()) return;
   Notification.requestPermission().then(r=>{
@@ -630,19 +703,22 @@ function announce(){
   const chat=(S.chat||[]).length;
   if(lastPhase!==null&&chat>lastChat){
     const m=S.chat[chat-1];
-    if(m&&m.pid!==myPid) notify("Neue Nachricht",m.name+": "+m.text);
+    if(m&&m.pid!==myPid){
+      if(document.hidden||!chatOpen) notify("Neue Nachricht",m.name+": "+m.text,"chat");
+    }
   }
   lastChat=chat;
   if(S.phase!==lastPhase||S.round!==lastRound){
     if(lastPhase!==null){
-      if(S.phase==="answer") notify("Deine Frage ist da","Runde "+S.round+" läuft – jetzt antworten.");
-      else if(S.phase==="reveal") notify("Auflösung","Alle Antworten sind da.");
-      else if(S.phase==="vote") notify("Abstimmung","Wer ist der Lügner?");
-      else if(S.phase==="result") notify("Ergebnis steht fest");
-      else if(S.phase==="lobby") notify("Zurück im Warteraum");
+      if(S.phase==="answer")      notify("Deine Frage ist da","Runde "+S.round+" läuft – jetzt antworten.","alert");
+      else if(S.phase==="reveal") notify("Auflösung","Alle Antworten sind da.","soft");
+      else if(S.phase==="vote")   notify("Abstimmung","Wer ist der Lügner?","alert");
+      else if(S.phase==="result") notify("Ergebnis steht fest","","soft");
+      else if(S.phase==="lobby")  notify("Zurück im Warteraum","","soft");
     }
     lastPhase=S.phase; lastRound=S.round;
   }
+  updateTitle();
 }
 
 const HEAD=`<div class="brand"><span class="mark">🕵️</span><h1>Fragen-<em>Impostor</em></h1></div>`;
@@ -723,7 +799,7 @@ function viewInvite(){
   el("own").onclick=()=>{ inviteCode=""; screen="start"; render(); };
   nm.focus();
 }
-function viewWait(){ paint(`<div class="solo">`+HEAD+`<div class="card center rise"><span class="spin"></span>Verbinde…</div></div>`); }
+function viewWait(){ document.title=TITLE; paint(`<div class="solo">`+HEAD+`<div class="card center rise"><span class="spin"></span>Verbinde…</div></div>`); }
 function viewError(){
   paint(`<div class="solo">`+HEAD+`<div class="card bad rise"><h2>Da ist was schiefgelaufen</h2><div class="note">${esc(errMsg)}</div></div>
     <button id="rl">Von vorn anfangen</button></div>`);
@@ -745,14 +821,25 @@ function topbar(){
     <span class="chip">Raum <b>${esc(S.code)}</b></span>
     ${S.round?`<span class="chip">Runde ${S.round}</span>`:""}
     <span class="chip">${S.players.filter(p=>p.online).length} online</span>
+    <span class="chip btn only-mobile" id="plbtn">Spieler (${S.players.length})</span>
+    <span class="chip btn" id="sndbtn" title="Ton an/aus">${soundOn?"🔊":"🔇"}</span>
     ${S.deadline?`<span class="chip clock"><span class="clockv">${fmtTime(timeLeft()||0)}</span></span>`:""}
     <span class="chip btn ${unread?"act":""}" id="chattop">Chat${unread?` <span class="bdg">${unread}</span>`:""}</span>
   </div>`+(idx>=0?`<div class="steps">${steps.map((x,i)=>`<div class="step ${i<=idx?"on":""}"></div>`).join("")}</div>`:"");
 }
-function frame(main,side){
-  return topbar()+`<div class="wrap"><div class="main">${main}</div><aside class="side">${side||""}</aside></div>`;
+function frame(main,players,chat){
+  return topbar()+`<div class="wrap">
+    <div class="main">${main}</div>
+    <aside class="colA">${players?`<button class="closex" id="pclose">Schließen</button>${players}`:""}</aside>
+    <aside class="colB">${chat||""}</aside>
+  </div><div class="scrim" id="scrim"></div>`;
 }
 function wire(){
+  const shut=()=>document.body.classList.remove("pl-open");
+  const pb=el("plbtn"); if(pb) pb.onclick=()=>document.body.classList.toggle("pl-open");
+  const sb=el("sndbtn"); if(sb) sb.onclick=()=>{ soundOn=!soundOn; LS.set("fi_sound",soundOn); if(soundOn) beep("soft"); render(); };
+  const sc=el("scrim"); if(sc) sc.onclick=shut;
+  const pc=el("pclose"); if(pc) pc.onclick=shut;
   const ct=el("chattop");
   if(ct) ct.onclick=()=>{ chatOpen=true; LS.set("fi_chatopen",true); render();
     setTimeout(()=>{ const c=el("chatcard"); if(c) c.scrollIntoView({behavior:"smooth",block:"end"}); },60); };
@@ -773,7 +860,7 @@ function chatCard(){
       <b style="font-size:15px">Chat</b>
       <span class="pts">${unread?`<span class="bdg" style="background:var(--p);color:#fff;padding:1px 7px;border-radius:99px">${unread} neu</span>`:`${msgs.length} Nachrichten · öffnen`}</span>
     </div></div>`;
-  return `<div class="card rise" id="chatcard">
+  return `<div class="card rise chatfull" id="chatcard">
     <div id="chathead" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <b style="font-size:15px">Chat</b><span class="pts">zuklappen</span></div>
     <div class="chat-log" id="clog">${
@@ -781,7 +868,7 @@ function chatCard(){
         ${avatar({pid:m.pid,name:m.name})}
         <div class="bub"><div class="au">${esc(m.name)}</div><div class="tx">${esc(m.text)}</div></div></div>`).join("")
       :`<div class="chat-empty">Noch nichts geschrieben.</div>`}</div>
-    <div class="chat-in"><input id="ci" maxlength="300" placeholder="Nachricht…" autocomplete="off" enterkeyhint="send">
+    <div class="chat-in" style="flex:none"><input id="ci" maxlength="300" placeholder="Nachricht…" autocomplete="off" enterkeyhint="send">
       <button id="csend">→</button></div></div>`;
 }
 /* Spielerliste – je nach Phase mit Punkten, Status oder Kick-Knopf. */
@@ -851,7 +938,7 @@ function viewLobby(){
      ${isHost?`<button id="go" ${on<3?"disabled":""}>Runde starten</button>
                <button id="close" class="sec">Raum schließen</button>`
              :`<div class="card center note rise">Warte auf den Host…</div>`+leaveBtn()}`,
-    playersCard("lobby")+chatCard()));
+    playersCard("lobby"),chatCard()));
   wire();
   el("cp").onclick=async e=>{
     try{ await navigator.clipboard.writeText(link); e.target.textContent="Link kopiert ✓"; }
@@ -875,13 +962,13 @@ function viewWaiting(){
        <div class="note">Du bist im Raum <b>${esc(S.code)}</b>. Die anderen sind noch mitten in Runde ${S.round} –
          sobald die nächste startet, bist du dabei.</div>
      </div>`+leaveBtn(),
-    chatCard()));
+    "",chatCard()));
   wire();
 }
 function viewAnswer(me){
   const done=me&&me.answered;
   paint(HEAD+frame(
-    `<div class="card glow rise"><div class="qlbl">Deine Frage</div><div class="q">${esc(myQuestion)}</div></div>`+
+    `<div class="card qhero rise"><div class="qlbl">Deine Frage</div><div class="q">${esc(myQuestion)}</div></div>`+
     (S.deadline?`<div class="card center rise" style="padding:20px">
         <div class="qlbl" style="margin-bottom:4px">Noch Zeit</div>
         <div class="bigclock clockv">${fmtTime(timeLeft()||0)}</div></div>`:"")+
@@ -890,7 +977,7 @@ function viewAnswer(me){
              <input id="ai" maxlength="80" placeholder="Antwort…" autocomplete="off" enterkeyhint="send">
              <button id="sb">Antwort abschicken</button>
              <div class="hint">Zeig dein Handy niemandem – nicht jeder hat dieselbe Frage.</div></div>`),
-    playersCard("answer")+chatCard()));
+    playersCard("answer"),chatCard()));
   wire();
   if(!done){
     const ai=el("ai"); ai.focus();
@@ -901,13 +988,13 @@ function viewAnswer(me){
 function viewReveal(){
   const inR=S.players.filter(p=>!p.waiting);
   paint(HEAD+frame(
-    `<div class="card glow rise"><div class="qlbl">Die Hauptfrage war</div><div class="q">${esc(S.mainQuestion)}</div></div>
+    `<div class="card qhero rise"><div class="qlbl">Die Hauptfrage war</div><div class="q">${esc(S.mainQuestion)}</div></div>
      <div class="card rise"><h2>Alle Antworten</h2>
        ${inR.map(p=>`<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===myPid?" · du":""}</div>
          <div class="txt">${esc(p.answer||"—")}</div></div></div>`).join("")}
        <div class="hint">Jetzt laut diskutieren: Wessen Antwort passt nicht zur Frage?</div></div>
      ${isHost?`<button id="v">Weiter zur Abstimmung</button>`:`<div class="card center note rise">Der Host startet die Abstimmung.</div>`}`,
-    playersCard("plain")+chatCard()));
+    playersCard("plain"),chatCard()));
   wire();
   if(isHost) el("v").onclick=()=>act({t:"tovote"});
 }
@@ -915,13 +1002,13 @@ function viewVote(me){
   const voted=me&&me.voted;
   const others=S.players.filter(p=>!p.waiting&&p.pid!==myPid);
   paint(HEAD+frame(
-    `<div class="card glow rise"><div class="qlbl">Hauptfrage</div><div class="q">${esc(S.mainQuestion)}</div></div>
+    `<div class="card qhero rise"><div class="qlbl">Hauptfrage</div><div class="q">${esc(S.mainQuestion)}</div></div>
      <div class="card rise"><h2>Wer hatte die andere Frage?</h2>
        ${voted?`<div class="center note" style="margin-top:0"><span class="spin"></span>Warte auf die anderen…</div>`
               :others.map(p=>`<button class="pick" data-v="${esc(p.pid)}">${avatar(p)}
                  <span class="nm">${esc(p.name)}<small>${esc(p.answer||"")}</small></span></button>`).join("")}
      </div>${voted?forceBtn("vote"):""}`,
-    playersCard("vote")+chatCard()));
+    playersCard("vote"),chatCard()));
   wire();
   if(!voted) app.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>act({t:"vote",target:b.dataset.v}));
 }
@@ -974,7 +1061,7 @@ function viewResult(){
        }).join("")}</div>
      ${isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="sec">Zurück in den Warteraum</button>`
              :`<div class="card center note rise">Der Host startet die nächste Runde.</div>`+leaveBtn()}`,
-    playersCard("score")+chatCard()));
+    playersCard("score"),chatCard()));
   wire();
   if(isHost){ el("nx").onclick=()=>act({t:"next"}); el("lb").onclick=()=>act({t:"lobby"}); }
 }
