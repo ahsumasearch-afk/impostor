@@ -61,19 +61,21 @@ body.pl-open .scrim{opacity:1;pointer-events:auto}
 .chat-log{max-height:46vh}
 
 @media(min-width:900px){
-  /* Feste Bildschirmhoehe: Kopf oben, darunter drei Spalten, die einzeln scrollen. */
-  body{height:100dvh;overflow:hidden;padding:20px 18px 18px}
-  #app{height:100%;display:flex;flex-direction:column}
-  .wrap{grid-template-columns:270px minmax(0,1fr) 350px;gap:16px;flex:1;min-height:0}
-  .main{grid-column:2;grid-row:1;min-width:0;height:100%;overflow-y:auto;padding-right:4px}
-  .colA{grid-column:1;grid-row:1;position:static;inset:auto;transform:none;width:auto;height:100%;
-    background:none;border:0;padding:0 4px 0 0;box-shadow:none;overflow-y:auto;z-index:1}
-  .colB{grid-column:3;grid-row:1;min-width:0;height:100%;display:flex;flex-direction:column}
+  /* Drei Spalten. Die Seite scrollt ganz normal – nur die beiden Randspalten
+     bleiben beim Scrollen stehen. Kein overflow:hidden auf dem body! */
+  .wrap{grid-template-columns:270px minmax(0,1fr) 350px;gap:16px;align-items:start}
+  .main{grid-column:2;grid-row:1;min-width:0}
+  .colA{grid-column:1;grid-row:1;position:sticky;top:20px;inset:auto;transform:none;width:auto;
+    background:none;border:0;padding:0;box-shadow:none;overflow:visible;z-index:1;
+    max-height:calc(100dvh - 40px);overflow-y:auto}
+  .colB{grid-column:3;grid-row:1;min-width:0;position:sticky;top:20px}
   .scrim,.closex,.only-mobile,.chip.only-mobile{display:none}
-  .colB .chatfull{display:flex;flex-direction:column;flex:1;min-height:0;margin-bottom:0}
+  /* Chat nutzt die Bildschirmhoehe, bleibt aber vollstaendig sichtbar. */
+  .colB .chatfull{display:flex;flex-direction:column;margin-bottom:0;
+    height:clamp(380px,calc(100dvh - 150px),780px)}
   .colB .chatfull .chat-log{max-height:none;flex:1;min-height:0}
-  .main::-webkit-scrollbar,.colA::-webkit-scrollbar,.chat-log::-webkit-scrollbar{width:8px}
-  .main::-webkit-scrollbar-thumb,.colA::-webkit-scrollbar-thumb,.chat-log::-webkit-scrollbar-thumb{
+  .colA::-webkit-scrollbar,.chat-log::-webkit-scrollbar{width:8px}
+  .colA::-webkit-scrollbar-thumb,.chat-log::-webkit-scrollbar-thumb{
     background:rgba(255,255,255,.13);border-radius:99px}
   .q{font-size:24px}
   .qhero .q{font-size:40px}
@@ -845,7 +847,7 @@ function wire(){
     setTimeout(()=>{ const c=el("chatcard"); if(c) c.scrollIntoView({behavior:"smooth",block:"end"}); },60); };
   const th=el("chathead");
   if(th) th.onclick=()=>{ chatOpen=!chatOpen; LS.set("fi_chatopen",chatOpen); render(); };
-  wireLeave();
+  wireExit();
   const cs=el("csend"), ci=el("ci");
   if(cs&&ci){
     const send=()=>{ const v=ci.value.trim(); if(!v) return; draftChat=""; ci.value=""; act({t:"chat",text:v}); ci.focus(); };
@@ -892,15 +894,22 @@ function playersCard(mode){
     ${mode==="score"?`<div class="note">+1 für jeden, der den Lügner erwischt · +2 für den Lügner, wenn er durchkommt.</div>`:""}
   </div>`;
 }
-/* Raum verlassen – fuer alle ausser dem Host, der stattdessen schliesst. */
-function leaveBtn(){ return isHost?"":`<button id="leave" class="sec">Raum verlassen</button>`; }
-function wireLeave(){
-  const b=el("leave"); if(!b) return;
-  b.onclick=()=>{
+/* Ausstieg – in jeder Phase sichtbar. Der Host schliesst den Raum, alle anderen gehen. */
+function exitBtn(){
+  return isHost?`<button id="closeroom" class="sec">Raum schließen</button>`
+               :`<button id="leave" class="sec">Raum verlassen</button>`;
+}
+function wireExit(){
+  const b=el("leave");
+  if(b) b.onclick=()=>{
     if(!confirm("Raum wirklich verlassen? Deine Punkte in diesem Raum sind dann weg.")) return;
-    act({t:"leave"});
-    LS.delMine("fi_room");
+    act({t:"leave"}); LS.delMine("fi_room");
     setTimeout(()=>{ teardown(); location.replace(location.pathname); },250);
+  };
+  const c=el("closeroom");
+  if(c) c.onclick=()=>{
+    if(!confirm("Raum wirklich schließen? Alle Mitspieler fliegen raus.")) return;
+    LS.delMine("fi_host"); teardown(); location.replace(location.pathname);
   };
 }
 /* Host-Knopf: weiter, ohne auf Abwesende zu warten. */
@@ -935,9 +944,9 @@ function viewLobby(){
      ${(canNotify()&&!notifyOn&&Notification.permission!=="denied")?`<div class="card rise"><label>Benachrichtigungen</label>
         <div class="note" style="margin-top:0">Damit du es mitbekommst, wenn eine neue Runde startet – auch wenn der Tab im Hintergrund ist.</div>
         <button id="notif" class="sec">Benachrichtigungen einschalten</button></div>`:""}
-     ${isHost?`<button id="go" ${on<3?"disabled":""}>Runde starten</button>
-               <button id="close" class="sec">Raum schließen</button>`
-             :`<div class="card center note rise">Warte auf den Host…</div>`+leaveBtn()}`,
+     ${isHost?`<button id="go" ${on<3?"disabled":""}>Runde starten</button>`
+             :`<div class="card center note rise">Warte auf den Host…</div>`}
+     ${exitBtn()}`,
     playersCard("lobby"),chatCard()));
   wire();
   el("cp").onclick=async e=>{
@@ -948,7 +957,6 @@ function viewLobby(){
   app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>act({t:"timer",sec:+b.dataset.sec}));
   if(isHost){
     if(el("go")) el("go").onclick=()=>act({t:"start"});
-    el("close").onclick=()=>{ if(confirm("Raum wirklich schließen? Alle fliegen raus.")){ LS.delMine("fi_host"); teardown(); location.replace(location.pathname); } };
     app.querySelectorAll("[data-kick]").forEach(b=>b.onclick=()=>{
       if(confirm("Diesen Spieler entfernen?")) act({t:"kick",pid:b.dataset.kick});
     });
@@ -961,7 +969,7 @@ function viewWaiting(){
        <div class="big"><span class="spin" style="width:19px;height:19px"></span>Gleich geht's los</div>
        <div class="note">Du bist im Raum <b>${esc(S.code)}</b>. Die anderen sind noch mitten in Runde ${S.round} –
          sobald die nächste startet, bist du dabei.</div>
-     </div>`+leaveBtn(),
+     </div>`+exitBtn(),
     "",chatCard()));
   wire();
 }
@@ -976,7 +984,8 @@ function viewAnswer(me){
          :`<div class="card rise"><label for="ai">Deine Antwort – kurz halten</label>
              <input id="ai" maxlength="80" placeholder="Antwort…" autocomplete="off" enterkeyhint="send">
              <button id="sb">Antwort abschicken</button>
-             <div class="hint">Zeig dein Handy niemandem – nicht jeder hat dieselbe Frage.</div></div>`),
+             <div class="hint">Zeig dein Handy niemandem – nicht jeder hat dieselbe Frage.</div></div>`)
+    +exitBtn(),
     playersCard("answer"),chatCard()));
   wire();
   if(!done){
@@ -993,7 +1002,8 @@ function viewReveal(){
        ${inR.map(p=>`<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===myPid?" · du":""}</div>
          <div class="txt">${esc(p.answer||"—")}</div></div></div>`).join("")}
        <div class="hint">Jetzt laut diskutieren: Wessen Antwort passt nicht zur Frage?</div></div>
-     ${isHost?`<button id="v">Weiter zur Abstimmung</button>`:`<div class="card center note rise">Der Host startet die Abstimmung.</div>`}`,
+     ${isHost?`<button id="v">Weiter zur Abstimmung</button>`:`<div class="card center note rise">Der Host startet die Abstimmung.</div>`}
+     ${exitBtn()}`,
     playersCard("plain"),chatCard()));
   wire();
   if(isHost) el("v").onclick=()=>act({t:"tovote"});
@@ -1007,7 +1017,7 @@ function viewVote(me){
        ${voted?`<div class="center note" style="margin-top:0"><span class="spin"></span>Warte auf die anderen…</div>`
               :others.map(p=>`<button class="pick" data-v="${esc(p.pid)}">${avatar(p)}
                  <span class="nm">${esc(p.name)}<small>${esc(p.answer||"")}</small></span></button>`).join("")}
-     </div>${voted?forceBtn("vote"):""}`,
+     </div>${voted?forceBtn("vote"):""}${exitBtn()}`,
     playersCard("vote"),chatCard()));
   wire();
   if(!voted) app.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>act({t:"vote",target:b.dataset.v}));
@@ -1060,7 +1070,8 @@ function viewResult(){
          </div>`;
        }).join("")}</div>
      ${isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="sec">Zurück in den Warteraum</button>`
-             :`<div class="card center note rise">Der Host startet die nächste Runde.</div>`+leaveBtn()}`,
+             :`<div class="card center note rise">Der Host startet die nächste Runde.</div>`}
+     ${exitBtn()}`,
     playersCard("score"),chatCard()));
   wire();
   if(isHost){ el("nx").onclick=()=>act({t:"next"}); el("lb").onclick=()=>act({t:"lobby"}); }
