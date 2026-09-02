@@ -11,9 +11,18 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
   alle anderen verbinden sich per 4-stelligem Raum-Code direkt zu ihm
 - Läuft deshalb auf jedem Static-Hosting (GitHub Pages, Netlify, IONOS …)
 
+## Funktionen
+
+- Chat pro Raum (jeder Raum hat seinen eigenen, Verlauf bleibt über die Runden erhalten)
+- Der Host kann Spieler im Warteraum entfernen; Entfernte kommen über den Link nicht zurück
+- Neuladen ändert nichts: Jeder Tab hat eine eigene Identität, die einen Reload überlebt –
+  Punkte, Name und Platz im Raum bleiben. Auch der Host kann neu laden, der Raum lebt weiter.
+- Fällt jemand kurz aus, wartet die Runde 20 Sekunden auf ihn, statt ihn zu überspringen
+
 ## Wichtig
 
-Der Host muss die Seite geöffnet lassen – schließt der Host den Tab, ist der Raum weg.
+Der Host muss die Seite geöffnet lassen – schließt er den Tab dauerhaft, ist der Raum weg.
+Ein Neuladen ist dagegen unproblematisch.
 
 ## Lokal testen
 
