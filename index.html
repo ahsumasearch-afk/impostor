@@ -70,6 +70,18 @@ h2{font-size:17px;font-weight:700;letter-spacing:-.3px;margin-bottom:12px}
 .card.tight{padding:14px 16px}
 .card.glow{background:linear-gradient(150deg,rgba(139,92,246,.20),rgba(34,211,238,.10));border-color:rgba(139,92,246,.42)}
 .card.bad{background:rgba(251,113,133,.10);border-color:rgba(251,113,133,.35)}
+.card.win{background:linear-gradient(150deg,rgba(52,211,153,.24),rgba(52,211,153,.06));border-color:rgba(52,211,153,.5)}
+.card.lose{background:linear-gradient(150deg,rgba(251,113,133,.24),rgba(251,113,133,.06));border-color:rgba(251,113,133,.5)}
+.verdict{font-size:36px;font-weight:800;letter-spacing:-1.2px;line-height:1.05;margin-bottom:5px}
+.verdict.g{color:#34d399}
+.verdict.r{color:#fb7185}
+.vsub{font-size:15px;font-weight:500;color:var(--tx);opacity:.85}
+.qpair{display:grid;gap:10px;margin-top:2px}
+.qbox{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+.qbox .k{font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut);margin-bottom:3px}
+.qbox .v{font-size:16.5px;font-weight:600;line-height:1.35}
+.qbox.imp{border-color:rgba(251,113,133,.42);background:rgba(251,113,133,.10)}
+.qbox.imp .k{color:#fda4af}
 
 label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin-bottom:7px;letter-spacing:.2px}
 input{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--tx);
@@ -401,6 +413,7 @@ function publicState(){
     phase:H.phase,round:H.round,code:roomCode,hostId:myPid,
     mainQuestion:H.phase==="answer"?"":H.mainQuestion,
     impostorId:H.phase==="result"?H.impostorId:null,
+    impostorQuestion:H.phase==="result"?((hp(H.impostorId)||{}).question||""):"",
     tally:H.tally,topIds:H.topIds,caught:H.caught,chat:H.chat,
     players:H.players.map(p=>({
       pid:p.pid,name:p.name,score:p.score,online:p.online,waiting:!!p.waiting,
@@ -809,11 +822,35 @@ function viewVote(me){
 function viewResult(){
   const imp=S.players.find(p=>p.pid===S.impostorId);
   const inR=S.players.filter(p=>!p.waiting);
+  const me=S.players.find(p=>p.pid===myPid);
   const votesFor=pid=>inR.filter(p=>p.vote===pid).map(p=>p.name);
+
+  /* Persoenliches Urteil: Der Luegner gewinnt, wenn er durchkommt.
+     Alle anderen gewinnen, wenn sie ihn selbst richtig getippt haben. */
+  let verdict="";
+  if(me&&!me.waiting){
+    const bin=me.pid===S.impostorId;
+    const won=bin?!S.caught:me.vote===S.impostorId;
+    const wrong=!bin&&me.vote?S.players.find(p=>p.pid===me.vote):null;
+    const why=bin
+      ?(won?"Niemand hat dich erwischt. +2 Punkte":"Sie haben dich erwischt.")
+      :(won?"Du hast den Lügner erkannt. +1 Punkt"
+           :(wrong?`Du hast auf ${esc(wrong.name)} getippt – falsch.`:"Du hast danebengelegen."));
+    verdict=`<div class="card ${won?"win":"lose"} center rise" style="padding:26px 20px">
+      <div class="verdict ${won?"g":"r"}">${won?"Gewonnen":"Verloren"}</div>
+      <div class="vsub">${bin?"Du warst der Lügner. ":""}${why}</div></div>`;
+  }
+
   paint(HEAD+frame(
-    `<div class="card glow center rise"><div class="qlbl">Die andere Frage hatte</div>
-       <div class="big">${esc(imp?imp.name:"—")}</div>
-       <div class="note" style="margin-top:2px">${S.caught?"Erwischt.":"Durchgekommen."}</div></div>
+    verdict+
+    `<div class="card glow rise">
+       <div class="qlbl">Der Lügner war</div>
+       <div class="big" style="margin:2px 0 14px">${esc(imp?imp.name:"—")}</div>
+       <div class="qpair">
+         <div class="qbox"><div class="k">Alle anderen bekamen</div><div class="v">${esc(S.mainQuestion)}</div></div>
+         <div class="qbox imp"><div class="k">${esc(imp?imp.name:"Der Lügner")} bekam</div>
+           <div class="v">${esc(S.impostorQuestion||"—")}</div></div>
+       </div></div>
      <div class="card rise"><h2>Stimmen</h2>
        ${inR.map(p=>{ const v=votesFor(p.pid);
          return `<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===S.impostorId?'<span class="tag imp">Lügner</span>':""}</div>
