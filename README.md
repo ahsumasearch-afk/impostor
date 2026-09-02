@@ -17,7 +17,11 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
 - Der Host kann Spieler im Warteraum entfernen; Entfernte kommen über den Link nicht zurück
 - Neuladen ändert nichts: Jeder Tab hat eine eigene Identität, die einen Reload überlebt –
   Punkte, Name und Platz im Raum bleiben. Auch der Host kann neu laden, der Raum lebt weiter.
-- Fällt jemand kurz aus, wartet die Runde 20 Sekunden auf ihn, statt ihn zu überspringen
+- Breites zweispaltiges Layout ab 900 px, auf dem Handy alles untereinander
+- Herzschlag in beide Richtungen: Wer den Tab schließt, wird nach wenigen Sekunden
+  erkannt und hält die Runde nicht auf. Ein Neuladen (1–3 s) wird davon nicht getroffen.
+  Der Host kann zusätzlich jederzeit "ohne die Abwesenden weitermachen".
+- Wer mitten in einer Runde beitritt, sieht nur einen Wartebildschirm – nicht die laufende Runde
 
 ## Wichtig
 
