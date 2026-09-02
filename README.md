@@ -15,6 +15,14 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
 
 - Nach der Abstimmung sieht jeder persönlich "Gewonnen" (grün) oder "Verloren" (rot),
   dazu beide Fragen im Vergleich – die der Gruppe und die des Lügners
+- Antwortzeit im Warteraum einstellbar: ohne Limit, 1, 3 oder 5 Minuten.
+  Läuft die Zeit ab, geht es automatisch zur Auflösung.
+- Der Tab-Titel zeigt immer, was gerade dran ist ("Jetzt antworten!", "Jetzt abstimmen!")
+  und im Hintergrund zusätzlich die Zahl ungelesener Chat-Nachrichten
+- Signalton bei jedem Phasenwechsel, abschaltbar über das Lautsprecher-Symbol oben.
+  Dazu auf Wunsch echte System-Benachrichtigungen (einmalig freizugeben)
+- Layout: Desktop dreispaltig (Spieler / Spiel / Chat über die volle Höhe),
+  auf dem Handy untereinander mit ausklappbarer Spielerliste
 - Chat pro Raum (jeder Raum hat seinen eigenen, Verlauf bleibt über die Runden erhalten)
 - Der Host kann Spieler im Warteraum entfernen; Entfernte kommen über den Link nicht zurück
 - Mitspieler können den Raum jederzeit selbst verlassen (Host schließt ihn stattdessen)
