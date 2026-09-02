@@ -13,6 +13,8 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
 
 ## Funktionen
 
+- Nach der Abstimmung sieht jeder persönlich "Gewonnen" (grün) oder "Verloren" (rot),
+  dazu beide Fragen im Vergleich – die der Gruppe und die des Lügners
 - Chat pro Raum (jeder Raum hat seinen eigenen, Verlauf bleibt über die Runden erhalten)
 - Der Host kann Spieler im Warteraum entfernen; Entfernte kommen über den Link nicht zurück
 - Neuladen ändert nichts: Jeder Tab hat eine eigene Identität, die einen Reload überlebt –
