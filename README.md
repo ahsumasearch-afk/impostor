@@ -15,8 +15,8 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
 
 - Nach der Abstimmung sieht jeder persönlich "Gewonnen" (grün) oder "Verloren" (rot),
   dazu beide Fragen im Vergleich – die der Gruppe und die des Lügners
-- Antwortzeit im Warteraum einstellbar: ohne Limit, 1, 3 oder 5 Minuten.
-  Läuft die Zeit ab, geht es automatisch zur Auflösung.
+- Drei getrennte Zeitlimits im Warteraum einstellbar: Antwortzeit, Besprechungszeit
+  und Zeit zum Abstimmen. Läuft eine ab, geht es automatisch weiter.
 - Der Tab-Titel zeigt immer, was gerade dran ist ("Jetzt antworten!", "Jetzt abstimmen!")
   und im Hintergrund zusätzlich die Zahl ungelesener Chat-Nachrichten
 - Signalton bei jedem Phasenwechsel, abschaltbar über das Lautsprecher-Symbol oben.
@@ -47,7 +47,10 @@ python3 -m http.server 8000
 
 Dann http://localhost:8000 öffnen.
 
-## Punkte
+## Punkte (Teamwertung)
 
-- +1 für jeden, der den Lügner richtig erwischt
-- +2 für den Lügner, wenn er nicht (eindeutig) erwischt wird
+Alle spielen gemeinsam gegen den Lügner:
+
+- Erwischt die Mehrheit den Lügner, bekommt **jeder im Team +1** – der Lügner geht leer aus.
+- Kommt der Lügner durch, bekommt **er allein +1** und alle anderen 0 –
+  auch die, die richtig getippt haben.
