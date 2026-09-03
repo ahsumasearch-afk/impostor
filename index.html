@@ -41,7 +41,7 @@ body::after{width:60vw;height:60vw;max-width:520px;max-height:520px;background:#
 @keyframes drift2{to{transform:translate(-14vw,-12vh) scale(1.1)}}
 @media (prefers-reduced-motion:reduce){body::before,body::after{animation:none}}
 
-#app{max-width:1060px;margin:0 auto;position:relative}
+#app{max-width:100%;margin:0 auto;position:relative}
 .solo{max-width:540px;margin:0 auto}
 .wrap{display:grid;gap:0}
 
@@ -61,9 +61,10 @@ body.pl-open .scrim{opacity:1;pointer-events:auto}
 .chat-log{max-height:46vh}
 
 @media(min-width:900px){
+  body{padding:20px 20px 30px}
   /* Drei Spalten. Die Seite scrollt ganz normal – nur die beiden Randspalten
      bleiben beim Scrollen stehen. Kein overflow:hidden auf dem body! */
-  .wrap{grid-template-columns:270px minmax(0,1fr) 350px;gap:16px;align-items:start}
+  .wrap{grid-template-columns:230px minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
   .main{grid-column:2;grid-row:1;min-width:0}
   .colA{grid-column:1;grid-row:1;position:sticky;top:20px;inset:auto;transform:none;width:auto;
     background:none;border:0;padding:0;box-shadow:none;overflow:visible;z-index:1;
@@ -149,6 +150,8 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .seg button{margin:0;padding:11px 3px;font-size:14px;font-weight:600;border-radius:11px;
   background:rgba(255,255,255,.05);border:1px solid var(--line);box-shadow:none;color:var(--mut)}
 .seg button.on{background:var(--grad);color:#fff;border-color:transparent}
+.chip.danger{background:rgba(251,113,133,.18);border-color:rgba(251,113,133,.5);color:#fda4af;font-weight:700}
+.chip.danger:hover{background:rgba(251,113,133,.32);color:#fff}
 .chip .bdg{background:var(--p);color:#fff;border-radius:99px;font-size:11px;font-weight:700;padding:1px 6px;min-width:18px;text-align:center}
 
 .steps{display:flex;gap:6px;margin-bottom:18px}
@@ -330,7 +333,8 @@ let inviteCode=/^[A-Z0-9]{4}$/.test(rawInvite)?rawInvite:"";
 /* ============================ Host-Logik ============================ */
 function freshState(){
   return {phase:"lobby",round:0,players:[],mainQuestion:"",impostorId:null,
-          tally:{},topIds:[],caught:false,chat:[],kicked:[],timer:0,deadline:0};
+          tally:{},topIds:[],caught:false,chat:[],kicked:[],
+          tAnswer:0,tTalk:0,tVote:0,deadline:0};
 }
 const GRACE=18000;   // Reserve fuer stille Faelle
 const QUICK=4000;    // abgemeldet oder Herzschlag ausgeblieben: nur kurz auf Rueckkehr warten
@@ -405,7 +409,7 @@ function hostStartRound(){
   const main=flip?pair[1]:pair[0], other=flip?pair[0]:pair[1];
   const imp=act[(Math.random()*act.length)|0];
   H.round++; H.phase="answer"; H.mainQuestion=main; H.impostorId=imp.pid;
-  H.deadline=H.timer?Date.now()+H.timer*1000:0;
+  setDeadline("answer");
   H.tally={}; H.topIds=[]; H.caught=false;
   clearTimeout(graceTimer);
   H.players.forEach(p=>{ p.answer=null; p.vote=null;
@@ -413,25 +417,35 @@ function hostStartRound(){
     p.question=(p.pid===imp.pid)?other:main; });
   broadcast();
 }
+/* Setzt die Uhr fuer die neue Phase – 0 heisst: ohne Zeitlimit. */
+function setDeadline(phase){
+  const sec=phase==="answer"?H.tAnswer:phase==="reveal"?H.tTalk:phase==="vote"?H.tVote:0;
+  H.deadline=sec?Date.now()+sec*1000:0;
+}
 function checkAnswers(force){
   if(H.phase!=="answer") return;
   const b=force?active():blockers();
-  if(b.length>=2&&b.every(p=>p.answer!=null)) H.phase="reveal";
+  if(b.length>=2&&b.every(p=>p.answer!=null)){ H.phase="reveal"; setDeadline("reveal"); }
 }
 function checkVotes(force){
   if(H.phase!=="vote") return;
   const b=force?active():blockers();
   if(!(b.length>=2&&b.every(p=>p.vote!=null))) return;
+  finishVotes();
+}
+/* Teamwertung: Entweder gewinnt die Gruppe gemeinsam oder der Luegner allein.
+   Der einzelne richtige Tipp bringt nichts, wenn die Mehrheit danebenliegt. */
+function finishVotes(){
   const voters=inRound().filter(p=>p.vote!=null);
-  if(!voters.length) return;
   const t={}; voters.forEach(p=>{ t[p.vote]=(t[p.vote]||0)+1; });
-  const max=Math.max(...Object.values(t));
+  const werte=Object.values(t);
+  const max=werte.length?Math.max(...werte):0;
   const tops=Object.keys(t).filter(k=>t[k]===max);
   H.tally=t; H.topIds=tops;
   H.caught=tops.length===1&&tops[0]===H.impostorId;
-  voters.forEach(p=>{ if(p.pid!==H.impostorId&&p.vote===H.impostorId) p.score+=1; });
-  if(!H.caught){ const i=hp(H.impostorId); if(i) i.score+=2; }
-  H.phase="result";
+  if(H.caught) inRound().forEach(p=>{ if(p.pid!==H.impostorId) p.score+=1; });
+  else { const i=hp(H.impostorId); if(i) i.score+=1; }
+  H.phase="result"; H.deadline=0;
 }
 function hostChat(pid,text){
   const p=hp(pid); if(!p) return;
@@ -452,8 +466,11 @@ function hostSweep(){
       p.online=false; p.quick=true; p.offSince=Date.now(); changed=true;
     }
   });
-  if(H.phase==="answer"&&H.deadline&&Date.now()>H.deadline){   // Zeit ist um
-    H.phase="reveal"; H.deadline=0; broadcast(); return;
+  if(H.deadline&&Date.now()>H.deadline){                      // Zeit ist um
+    if(H.phase==="answer"){ H.phase="reveal"; setDeadline("reveal"); broadcast(); return; }
+    if(H.phase==="reveal"){ H.phase="vote";   setDeadline("vote");   broadcast(); return; }
+    if(H.phase==="vote"){   finishVotes();                            broadcast(); return; }
+    H.deadline=0;
   }
   const before=H.phase;
   checkAnswers(); checkVotes();
@@ -468,7 +485,7 @@ function publicState(){
     impostorId:H.phase==="result"?H.impostorId:null,
     impostorQuestion:H.phase==="result"?((hp(H.impostorId)||{}).question||""):"",
     tally:H.tally,topIds:H.topIds,caught:H.caught,chat:H.chat,
-    timer:H.timer||0, deadline:H.phase==="answer"?(H.deadline||0):0,
+    tAnswer:H.tAnswer||0, tTalk:H.tTalk||0, tVote:H.tVote||0, deadline:H.deadline||0,
     players:H.players.map(p=>({
       pid:p.pid,name:p.name,score:p.score,online:p.online,waiting:!!p.waiting,
       answered:p.answer!=null,voted:p.vote!=null,
@@ -508,12 +525,17 @@ function hostHandle(connId,pid,msg){
     case "force":                                 // Host: ohne die Abwesenden weiter
       if(pid===myPid){ checkAnswers(true); checkVotes(true); broadcast(); } return;
     case "start":  if(pid===myPid&&H.phase==="lobby") hostStartRound(); return;
-    case "tovote": if(pid===myPid&&H.phase==="reveal"){H.phase="vote";broadcast();} return;
+    case "tovote": if(pid===myPid&&H.phase==="reveal"){H.phase="vote";setDeadline("vote");broadcast();} return;
     case "next":   if(pid===myPid&&H.phase==="result") hostStartRound(); return;
-    case "lobby":  if(pid===myPid){H.phase="lobby";broadcast();} return;
+    case "lobby":  if(pid===myPid){H.phase="lobby";H.deadline=0;broadcast();} return;
     case "kick":   if(pid===myPid&&H.phase==="lobby") hostKick(msg.pid); return;
-    case "timer":                                 // Antwortzeit einstellen (nur Host, nur im Warteraum)
-      if(pid===myPid&&H.phase==="lobby"&&[0,60,180,300].includes(msg.sec)){ H.timer=msg.sec; broadcast(); }
+    case "timer":                                 // Zeiten einstellen (nur Host, nur im Warteraum)
+      if(pid===myPid&&H.phase==="lobby"&&typeof msg.sec==="number"&&msg.sec>=0&&msg.sec<=900){
+        if(msg.which==="answer") H.tAnswer=msg.sec;
+        else if(msg.which==="talk") H.tTalk=msg.sec;
+        else if(msg.which==="vote") H.tVote=msg.sec;
+        broadcast();
+      }
       return;
     case "leave":                                 // Spieler verlaesst den Raum freiwillig
       H.players=H.players.filter(x=>x.pid!==pid);
@@ -538,7 +560,8 @@ function claim(code,restore,attempt){
   p.on("open",()=>{
     opened=true; peer=p; roomCode=code;
     if(restore){
-      H=restore; H.kicked=H.kicked||[]; H.chat=H.chat||[]; H.timer=H.timer||0;
+      H=restore; H.kicked=H.kicked||[]; H.chat=H.chat||[];
+      H.tAnswer=H.tAnswer||0; H.tTalk=H.tTalk||0; H.tVote=H.tVote||0;
       const me=hp(myPid);
       if(me){ me.online=true; me.connId=null; myName=me.name; }
       else H.players.push({pid:myPid,name:myName,score:0,answer:null,vote:null,question:"",online:true,connId:null});
@@ -633,6 +656,7 @@ function peerErr(e){
 
 /* ============================ Rendering ============================ */
 /* ---------- Uhr ---------- */
+const secLabel=v=>v<60?v+" Sek":(v/60)+" Min";
 const fmtTime=sec=>Math.floor(sec/60)+":"+String(sec%60).padStart(2,"0");
 const timeLeft=()=>(S&&S.deadline)?Math.max(0,Math.round((S.deadline-Date.now())/1000)):null;
 setInterval(()=>{
@@ -824,9 +848,10 @@ function topbar(){
     ${S.round?`<span class="chip">Runde ${S.round}</span>`:""}
     <span class="chip">${S.players.filter(p=>p.online).length} online</span>
     <span class="chip btn only-mobile" id="plbtn">Spieler (${S.players.length})</span>
-    <span class="chip btn" id="sndbtn" title="Ton an/aus">${soundOn?"🔊":"🔇"}</span>
+    <span class="chip btn" id="sndbtn" title="Ton an- oder ausschalten">${soundOn?"🔊 Ton an":"🔇 Ton aus"}</span>
     ${S.deadline?`<span class="chip clock"><span class="clockv">${fmtTime(timeLeft()||0)}</span></span>`:""}
     <span class="chip btn ${unread?"act":""}" id="chattop">Chat${unread?` <span class="bdg">${unread}</span>`:""}</span>
+    <span class="chip btn danger" id="${isHost?"closeroom":"leave"}">${isHost?"Raum schließen":"Raum verlassen"}</span>
   </div>`+(idx>=0?`<div class="steps">${steps.map((x,i)=>`<div class="step ${i<=idx?"on":""}"></div>`).join("")}</div>`:"");
 }
 function frame(main,players,chat){
@@ -891,14 +916,12 @@ function playersCard(mode){
       ${p.online?"":"<small>nicht verbunden</small>"}</span>
       ${status(p)}
       ${mode==="lobby"&&isHost&&p.pid!==myPid?`<button class="mini" data-kick="${esc(p.pid)}">Kick</button>`:""}</li>`).join("")}</ul>
-    ${mode==="score"?`<div class="note">+1 für jeden, der den Lügner erwischt · +2 für den Lügner, wenn er durchkommt.</div>`:""}
+    ${mode==="score"?`<div class="note">Erwischt die Mehrheit den Lügner, bekommt das ganze Team +1. Kommt er durch, bekommt er allein +1.</div>`:""}
   </div>`;
 }
 /* Ausstieg – in jeder Phase sichtbar. Der Host schliesst den Raum, alle anderen gehen. */
-function exitBtn(){
-  return isHost?`<button id="closeroom" class="sec">Raum schließen</button>`
-               :`<button id="leave" class="sec">Raum verlassen</button>`;
-}
+/* Der Ausstieg sitzt oben in der Kopfleiste (rot) – unten daher nichts mehr. */
+function exitBtn(){ return ""; }
 function wireExit(){
   const b=el("leave");
   if(b) b.onclick=()=>{
@@ -930,16 +953,22 @@ function viewLobby(){
     `<div class="card glow code-hero rise"><div class="lbl">Raum-Code</div><div class="val">${esc(S.code)}</div>
        <button id="cp" class="sec">Einladungslink kopieren</button></div>
      ${on<3?`<div class="card rise note" style="margin-top:0">Es fehlen noch ${3-on} Spieler – ab 3 geht es los.</div>`:""}
-     <div class="card rise"><label>Antwortzeit</label>
-       ${isHost?`<div class="seg">
-           <button data-sec="0"   class="${S.timer===0?"on":""}">ohne</button>
-           <button data-sec="60"  class="${S.timer===60?"on":""}">1 Min</button>
-           <button data-sec="180" class="${S.timer===180?"on":""}">3 Min</button>
-           <button data-sec="300" class="${S.timer===300?"on":""}">5 Min</button>
-         </div>
-         <div class="note">${S.timer?"Nach Ablauf geht es automatisch zur Auflösung – wer nichts eingetippt hat, hat keine Antwort abgegeben.":"Ohne Zeitlimit: Die Runde läuft, bis alle geantwortet haben."}</div>`
-       :`<div class="q" style="font-size:19px">${S.timer?(S.timer/60===1?"1 Minute":S.timer/60+" Minuten"):"ohne Zeitlimit"}</div>
-         <div class="note">Der Host stellt die Antwortzeit ein.</div>`}
+     <div class="card rise"><h2>Zeitlimits</h2>
+       ${isHost?["answer","talk","vote"].map(k=>{
+         const titel={answer:"Antwortzeit",talk:"Besprechungszeit",vote:"Zeit zum Abstimmen"}[k];
+         const wert={answer:S.tAnswer,talk:S.tTalk,vote:S.tVote}[k];
+         const opt={answer:[0,60,180,300],talk:[0,60,120,180],vote:[0,30,60,120]}[k];
+         return `<label style="margin-top:14px">${titel}</label>
+           <div class="seg">${opt.map(v=>`<button data-t="${k}" data-sec="${v}" class="${wert===v?"on":""}">${v?secLabel(v):"ohne"}</button>`).join("")}</div>`;
+       }).join("")
+       :[["Antwortzeit",S.tAnswer],["Besprechungszeit",S.tTalk],["Abstimmung",S.tVote]].map(([t,v])=>
+          `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+             <span class="pts">${t}</span><b>${v?secLabel(v):"ohne Limit"}</b></div>`).join("")}
+       <div class="note">${isHost?"Läuft eine Zeit ab, geht es automatisch weiter.":"Der Host stellt die Zeiten ein."}</div>
+     </div>
+     <div class="card rise"><label>Ton</label>
+       <div class="note" style="margin-top:0">Ein kurzes Signal, sobald du dran bist. Gilt nur für dich.</div>
+       <button id="sndbig" class="sec">${soundOn?"🔊 Ton ist an – ausschalten":"🔇 Ton ist aus – einschalten"}</button>
      </div>
      ${(canNotify()&&!notifyOn&&Notification.permission!=="denied")?`<div class="card rise"><label>Benachrichtigungen</label>
         <div class="note" style="margin-top:0">Damit du es mitbekommst, wenn eine neue Runde startet – auch wenn der Tab im Hintergrund ist.</div>
@@ -954,7 +983,8 @@ function viewLobby(){
     catch(_){ prompt("Link zum Teilen:",link); }
   };
   if(el("notif")) el("notif").onclick=askNotify;
-  app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>act({t:"timer",sec:+b.dataset.sec}));
+  app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>act({t:"timer",which:b.dataset.t,sec:+b.dataset.sec}));
+  if(el("sndbig")) el("sndbig").onclick=()=>{ soundOn=!soundOn; LS.set("fi_sound",soundOn); if(soundOn) beep("soft"); render(); };
   if(isHost){
     if(el("go")) el("go").onclick=()=>act({t:"start"});
     app.querySelectorAll("[data-kick]").forEach(b=>b.onclick=()=>{
@@ -997,6 +1027,8 @@ function viewAnswer(me){
 function viewReveal(){
   const inR=S.players.filter(p=>!p.waiting);
   paint(HEAD+frame(
+    (S.deadline?`<div class="card center rise" style="padding:16px"><div class="qlbl" style="margin-bottom:3px">Besprechungszeit</div>
+       <div class="bigclock clockv" style="font-size:30px">${fmtTime(timeLeft()||0)}</div></div>`:"")+
     `<div class="card qhero rise"><div class="qlbl">Die Hauptfrage war</div><div class="q">${esc(S.mainQuestion)}</div></div>
      <div class="card rise"><h2>Alle Antworten</h2>
        ${inR.map(p=>`<div class="ans">${avatar(p)}<div><div class="who">${esc(p.name)}${p.pid===myPid?" · du":""}</div>
@@ -1012,6 +1044,8 @@ function viewVote(me){
   const voted=me&&me.voted;
   const others=S.players.filter(p=>!p.waiting&&p.pid!==myPid);
   paint(HEAD+frame(
+    (S.deadline?`<div class="card center rise" style="padding:16px"><div class="qlbl" style="margin-bottom:3px">Noch Zeit zum Abstimmen</div>
+       <div class="bigclock clockv" style="font-size:30px">${fmtTime(timeLeft()||0)}</div></div>`:"")+
     `<div class="card qhero rise"><div class="qlbl">Hauptfrage</div><div class="q">${esc(S.mainQuestion)}</div></div>
      <div class="card rise"><h2>Wer hatte die andere Frage?</h2>
        ${voted?`<div class="center note" style="margin-top:0"><span class="spin"></span>Warte auf die anderen…</div>`
@@ -1028,17 +1062,19 @@ function viewResult(){
   const me=S.players.find(p=>p.pid===myPid);
   const votesFor=pid=>inR.filter(p=>p.vote===pid).map(p=>p.name);
 
-  /* Persoenliches Urteil: Der Luegner gewinnt, wenn er durchkommt.
-     Alle anderen gewinnen, wenn sie ihn selbst richtig getippt haben. */
+  /* Teamwertung: Die Gruppe gewinnt oder verliert gemeinsam.
+     Ein einzelner richtiger Tipp zaehlt nicht, wenn die Mehrheit danebenliegt. */
   let verdict="";
   if(me&&!me.waiting){
     const bin=me.pid===S.impostorId;
-    const won=bin?!S.caught:me.vote===S.impostorId;
-    const wrong=!bin&&me.vote?S.players.find(p=>p.pid===me.vote):null;
+    const won=bin?!S.caught:S.caught;
+    const selbstRichtig=!bin&&me.vote===S.impostorId;
     const why=bin
-      ?(won?"Niemand hat dich erwischt. +2 Punkte":"Sie haben dich erwischt.")
-      :(won?"Du hast den Lügner erkannt. +1 Punkt"
-           :(wrong?`Du hast auf ${esc(wrong.name)} getippt – falsch.`:"Du hast danebengelegen."));
+      ?(won?"Niemand hat dich erwischt. +1 Punkt für dich."
+           :"Die Mehrheit hat dich erwischt. Diese Runde geht an die anderen.")
+      :(won?"Ihr habt den Lügner gemeinsam erwischt. +1 Punkt für jeden im Team."
+           :(selbstRichtig?"Dein Tipp war richtig – aber die Mehrheit lag daneben. Keine Punkte."
+                          :"Die Mehrheit lag daneben. Der Punkt geht an den Lügner."));
     verdict=`<div class="card ${won?"win":"lose"} center rise" style="padding:26px 20px">
       <div class="verdict ${won?"g":"r"}">${won?"Gewonnen":"Verloren"}</div>
       <div class="vsub">${bin?"Du warst der Lügner. ":""}${why}</div></div>`;
