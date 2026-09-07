@@ -13,6 +13,10 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
 
 ## Funktionen
 
+- Startseite: Name und Emoji ("Skin") oben mit Live-Vorschau, darunter links Raum
+  erstellen und rechts per Code beitreten. Das Emoji begleitet den Spieler durch
+  Spielerliste, Antworten, Abstimmung und Chat.
+
 - Nach der Abstimmung sieht jeder persönlich "Gewonnen" (grün) oder "Verloren" (rot),
   dazu beide Fragen im Vergleich – die der Gruppe und die des Lügners
 - Drei getrennte Zeitlimits im Warteraum einstellbar: Antwortzeit, Besprechungszeit
