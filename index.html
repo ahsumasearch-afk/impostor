@@ -186,11 +186,18 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .prevrow{display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px 14px;
   border-radius:14px;background:rgba(255,255,255,.045);border:1px solid var(--line)}
 .prevrow .av{width:42px;height:42px;border-radius:13px}
-.emogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px;margin-top:2px}
+.emogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px;margin-top:2px;
+  max-height:210px;overflow-y:auto;padding:2px 4px 2px 2px}
+.emogrid::-webkit-scrollbar{width:8px}
+.emogrid::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:99px}
 .emogrid button{margin:0;padding:0;aspect-ratio:1;font-size:19px;line-height:1;border-radius:11px;
   background:rgba(255,255,255,.05);border:1px solid var(--line);box-shadow:none;transition:.14s}
 .emogrid button.on{background:rgba(139,92,246,.3);border-color:rgba(139,92,246,.75);transform:scale(1.06)}
 .av.emo{font-size:19px}
+.colgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:7px;margin-top:2px}
+.colgrid button{margin:0;padding:0;aspect-ratio:1;border-radius:50%;box-shadow:none;
+  border:2px solid transparent;transition:.14s}
+.colgrid button.on{border-color:#fff;transform:scale(1.1)}
 .prevrow .av.emo{font-size:22px}
 .plist{list-style:none}
 .plist li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -306,13 +313,21 @@ const LS={
   /* Nur loeschen, was diesem Tab gehoert – mehrere Tabs teilen sich den Speicher. */
   delMine(k){ const o=this.get(k,null); if(o&&o.owner&&o.owner!==myPid) return; this.del(k); }
 };
-const EMOJIS=["🦊","🐼","🐸","🐙","🦉","🐝","🦄","🐺","🦁","🐨","🦈","🐢","🐧","🦋",
-  "👽","🤖","👻","🎃","💀","🥷","🧙","🕶️","🎩","👑",
-  "🍕","🌮","🍄","🍩","⚡","🔥","🌵","🌙"];
+const EMOJIS=[
+  "🐰","🦊","🐼","🐸","🐙","🦉","🐝","🦄","🐺","🦁","🐨","🦈","🐢","🐧","🦋","🐷",
+  "🐮","🐹","🐔","🦆","🦅","🦇","🐗","🦝","🦡","🦦","🦥","🦩","🦜","🐬","🐳","🦭",
+  "🦖","🦕","🐉","🦂","🕷️","🐌","🦀","🐡","🦑","🐍","🦎","🐊","🦔","🐴","🦒","🐘",
+  "👽","🤖","👻","🎃","💀","☠️","🥷","🧙","🧛","🧜","🧟","🤡","🤠","🕶️","🎩","👑",
+  "🍕","🌮","🍄","🍩","🍔","🌭","🍟","🍿","🍦","🍪","🥑","🍉","🍒","🌶️","🥕","☕",
+  "🍺","🧃","🎸","🎮","🎲","🃏","🚀","🛸","⚽","🏀","🎯","🧠","👁️","🦷","💎","🔮",
+  "⚡","🔥","🌵","🌙","🌈","⭐","❄️","🌊","🪐","🧲","🎪","🍀"];
+const FARBEN=[265,285,320,340,0,18,35,50,80,140,165,190,210,235];   // Farbtoene
 let myEmoji=LS.get("fi_emoji","")||"";
+let myColor=LS.get("fi_color",null);
+const farbeVon=p=>(p.color===0||p.color)?p.color:hue(p.pid||p.name||"x");
 function hue(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return h; }
 function avatar(p,cls){
-  const h=hue(p.pid||p.name||"x");
+  const h=farbeVon(p);
   const off=(p.online===false)?" off":"";
   if(p.emoji) return `<span class="av emo${off}${cls?" "+cls:""}" style="background:linear-gradient(140deg,hsl(${h} 55% 30%),hsl(${(h+42)%360} 55% 20%))">${p.emoji}</span>`;
   return `<span class="av${off}${cls?" "+cls:""}" style="background:linear-gradient(140deg,hsl(${h} 82% 68%),hsl(${(h+42)%360} 82% 58%))">${esc((p.name||"?").trim().charAt(0).toUpperCase())}</span>`;
@@ -382,7 +397,7 @@ function saveHost(){
 }
 function sendTo(p,msg){ const c=p.connId&&conns[p.connId]; if(c&&c.open){ try{c.send(msg);}catch(_){} } }
 
-function hostJoin(connId,pid,name,emoji){
+function hostJoin(connId,pid,name,emoji,color){
   if(H.kicked.includes(pid)){
     const c=conns[connId]; if(c&&c.open) c.send({t:"denied"});
     return;
@@ -392,8 +407,9 @@ function hostJoin(connId,pid,name,emoji){
     p.connId=connId; p.online=true; p.offSince=0; p.quick=false; p.lastSeen=Date.now();
     if(name) p.name=uniqueName(name,pid);
     if(emoji) p.emoji=emoji;
+    if(color===0||color) p.color=color;
   }else{
-    p={pid,name:uniqueName(name||"Spieler",pid),emoji:emoji||"",score:0,answer:null,vote:null,question:"",
+    p={pid,name:uniqueName(name||"Spieler",pid),emoji:emoji||"",color:(color===0||color)?color:null,score:0,answer:null,vote:null,question:"",
        online:true,connId,lastSeen:Date.now(),waiting:H.phase!=="lobby"};
     H.players.push(p);
   }
@@ -510,7 +526,7 @@ function publicState(){
     tally:H.tally,topIds:H.topIds,caught:H.caught,chat:H.chat,
     tAnswer:H.tAnswer||0, tTalk:H.tTalk||0, tVote:H.tVote||0, deadline:H.deadline||0,
     players:H.players.map(p=>({
-      pid:p.pid,name:p.name,emoji:p.emoji||"",score:p.score,online:p.online,waiting:!!p.waiting,
+      pid:p.pid,name:p.name,emoji:p.emoji||"",color:(p.color===0||p.color)?p.color:null,score:p.score,online:p.online,waiting:!!p.waiting,
       answered:p.answer!=null,voted:p.vote!=null,
       answer:show?p.answer:null,vote:H.phase==="result"?p.vote:null
     }))
@@ -526,7 +542,7 @@ function broadcast(){
 }
 function hostHandle(connId,pid,msg){
   if(!H||!msg) return;
-  if(msg.t==="join"){ hostJoin(connId,msg.pid,msg.name,msg.emoji); return; }
+  if(msg.t==="join"){ hostJoin(connId,msg.pid,msg.name,msg.emoji,msg.color); return; }
   const p=hp(pid); if(!p) return;
   p.lastSeen=Date.now();
   if(msg.t==="ping"){                       // Herzschlag: zurueck aus kurzer Stille
@@ -586,11 +602,11 @@ function claim(code,restore,attempt){
       H=restore; H.kicked=H.kicked||[]; H.chat=H.chat||[];
       H.tAnswer=H.tAnswer||0; H.tTalk=H.tTalk||0; H.tVote=H.tVote||0;
       const me=hp(myPid);
-      if(me){ me.online=true; me.connId=null; myName=me.name; me.emoji=myEmoji||me.emoji||""; }
-      else H.players.push({pid:myPid,name:myName,emoji:myEmoji,score:0,answer:null,vote:null,question:"",online:true,connId:null});
+      if(me){ me.online=true; me.connId=null; myName=me.name; me.emoji=myEmoji||me.emoji||""; me.color=(myColor===0||myColor)?myColor:me.color; }
+      else H.players.push({pid:myPid,name:myName,emoji:myEmoji,color:myColor,score:0,answer:null,vote:null,question:"",online:true,connId:null});
     }else{
       H=freshState();
-      H.players.push({pid:myPid,name:myName,emoji:myEmoji,score:0,answer:null,vote:null,question:"",online:true,connId:null});
+      H.players.push({pid:myPid,name:myName,emoji:myEmoji,color:myColor,score:0,answer:null,vote:null,question:"",online:true,connId:null});
     }
     screen="game"; banner=""; broadcast();
     clearInterval(sweepTimer); sweepTimer=setInterval(hostSweep,2000);
@@ -638,7 +654,7 @@ function connectHost(){
   const guard=setTimeout(()=>{ if(!c.open) scheduleRetry(); },9000);
   c.on("open",()=>{
     clearTimeout(guard); retries=0; banner=""; lastHb=Date.now();
-    screen="game"; c.send({t:"join",pid:myPid,name:myName,emoji:myEmoji}); render();
+    screen="game"; c.send({t:"join",pid:myPid,name:myName,emoji:myEmoji,color:myColor}); render();
   });
   c.on("data",d=>{
     if(!d) return;
@@ -820,6 +836,10 @@ function viewStart(){
      <label style="margin-top:16px">Dein Emoji</label>
      <div class="emogrid" id="emo">${EMOJIS.map(e=>
         `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
+     <label style="margin-top:16px">Deine Farbe</label>
+     <div class="colgrid" id="col">${FARBEN.map(h=>
+        `<button data-c="${h}" class="${myColor===h?"on":""}" title="Farbe"
+          style="background:linear-gradient(140deg,hsl(${h} 70% 55%),hsl(${(h+42)%360} 70% 42%))"></button>`).join("")}</div>
      <div id="prev"></div>
    </div>
    <div class="startgrid">
@@ -838,7 +858,7 @@ function viewStart(){
   /* Live-Vorschau: genau so taucht man gleich in der Spielerliste auf. */
   const prev=()=>{
     el("prev").innerHTML=`<div class="prevrow">
-      ${avatar({pid:myPid,name:nm.value.trim()||"Spieler",emoji:myEmoji})}
+      ${avatar({pid:myPid,name:nm.value.trim()||"Spieler",emoji:myEmoji,color:myColor})}
       <span class="nm">${esc(nm.value.trim()||"Spieler")}<span class="tag you">du</span></span>
       <span class="pts">0 Pkt</span></div>`;
   };
@@ -848,6 +868,12 @@ function viewStart(){
     myEmoji=(myEmoji===b.dataset.e)?"":b.dataset.e;
     LS.set("fi_emoji",myEmoji);
     app.querySelectorAll("#emo [data-e]").forEach(x=>x.classList.toggle("on",x.dataset.e===myEmoji));
+    prev();
+  });
+  app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>{
+    myColor=+b.dataset.c;
+    LS.set("fi_color",myColor);
+    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",+x.dataset.c===myColor));
     prev();
   });
 
@@ -872,6 +898,10 @@ function viewInvite(){
      <label style="margin-top:16px">Dein Emoji</label>
      <div class="emogrid" id="emo">${EMOJIS.map(e=>
         `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
+     <label style="margin-top:16px">Deine Farbe</label>
+     <div class="colgrid" id="col">${FARBEN.map(h=>
+        `<button data-c="${h}" class="${myColor===h?"on":""}" title="Farbe"
+          style="background:linear-gradient(140deg,hsl(${h} 70% 55%),hsl(${(h+42)%360} 70% 42%))"></button>`).join("")}</div>
      <div id="prev"></div>
      <button id="jn">Raum beitreten</button>
    </div>
@@ -880,7 +910,7 @@ function viewInvite(){
   const nm=el("nm"); nm.value=LS.get("fi_name","")||"";
   const prev=()=>{
     el("prev").innerHTML=`<div class="prevrow">
-      ${avatar({pid:myPid,name:nm.value.trim()||"Spieler",emoji:myEmoji})}
+      ${avatar({pid:myPid,name:nm.value.trim()||"Spieler",emoji:myEmoji,color:myColor})}
       <span class="nm">${esc(nm.value.trim()||"Spieler")}<span class="tag you">du</span></span>
       <span class="pts">0 Pkt</span></div>`;
   };
@@ -889,6 +919,12 @@ function viewInvite(){
     myEmoji=(myEmoji===b.dataset.e)?"":b.dataset.e;
     LS.set("fi_emoji",myEmoji);
     app.querySelectorAll("#emo [data-e]").forEach(x=>x.classList.toggle("on",x.dataset.e===myEmoji));
+    prev();
+  });
+  app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>{
+    myColor=+b.dataset.c;
+    LS.set("fi_color",myColor);
+    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",+x.dataset.c===myColor));
     prev();
   });
   const go=()=>{ const n=(nm.value.trim()||"Spieler").slice(0,16); LS.set("fi_name",nm.value.trim()); startClient(inviteCode,n); };
@@ -963,7 +999,7 @@ function chatCard(){
       <b style="font-size:15px">Chat</b><span class="pts">zuklappen</span></div>
     <div class="chat-log" id="clog">${
       msgs.length?msgs.map(m=>`<div class="msg ${m.pid===myPid?"me":""}">
-        ${avatar({pid:m.pid,name:m.name,emoji:(S.players.find(x=>x.pid===m.pid)||{}).emoji})}
+        ${avatar(Object.assign({pid:m.pid,name:m.name},S.players.find(x=>x.pid===m.pid)||{}))}
         <div class="bub"><div class="au">${esc(m.name)}</div><div class="tx">${esc(m.text)}</div></div></div>`).join("")
       :`<div class="chat-empty">Noch nichts geschrieben.</div>`}</div>
     <div class="chat-in" style="flex:none"><input id="ci" maxlength="300" placeholder="Nachricht…" autocomplete="off" enterkeyhint="send">

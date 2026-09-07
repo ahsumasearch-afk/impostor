@@ -13,8 +13,8 @@ Hauptfrage aufgedeckt, mündlich diskutiert und abgestimmt, wer der Lügner war.
 
 ## Funktionen
 
-- Startseite: Name und Emoji ("Skin") oben mit Live-Vorschau, darunter links Raum
-  erstellen und rechts per Code beitreten. Das Emoji begleitet den Spieler durch
+- Startseite: Name, Emoji ("Skin") aus über 100 Symbolen und eine von 14 Farben, mit Live-Vorschau, darunter links Raum
+  erstellen und rechts per Code beitreten. Emoji und Farbe begleiten den Spieler durch
   Spielerliste, Antworten, Abstimmung und Chat.
 
 - Nach der Abstimmung sieht jeder persönlich "Gewonnen" (grün) oder "Verloren" (rot),
