@@ -64,7 +64,7 @@ body.pl-open .scrim{opacity:1;pointer-events:auto}
   body{padding:20px 20px 30px}
   /* Drei Spalten. Die Seite scrollt ganz normal – nur die beiden Randspalten
      bleiben beim Scrollen stehen. Kein overflow:hidden auf dem body! */
-  .wrap{grid-template-columns:230px minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  .wrap{grid-template-columns:255px minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
   .main{grid-column:2;grid-row:1;min-width:0}
   .colA{grid-column:1;grid-row:1;position:sticky;top:20px;inset:auto;transform:none;width:auto;
     background:none;border:0;padding:0;box-shadow:none;overflow:visible;z-index:1;
@@ -127,7 +127,7 @@ button:hover:not(:disabled){filter:brightness(1.1)}
 button:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
 button.sec{background:rgba(255,255,255,.06);border:1px solid var(--line2);box-shadow:none;color:var(--tx)}
 button.sec:hover:not(:disabled){background:rgba(255,255,255,.11)}
-button.mini{width:auto;padding:7px 13px;font-size:13px;font-weight:600;margin:0;border-radius:9px;
+button.mini{width:auto;padding:5px 9px;font-size:14px;font-weight:700;margin:0;border-radius:8px;flex:none;
   background:rgba(255,255,255,.07);border:1px solid var(--line);box-shadow:none;color:var(--mut)}
 button.mini:hover:not(:disabled){color:#fff;background:rgba(251,113,133,.2);border-color:rgba(251,113,133,.45)}
 button.pick{background:rgba(255,255,255,.05);border:1px solid var(--line);box-shadow:none;color:var(--tx);
@@ -175,6 +175,23 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .qlbl{font-size:11.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#c4b5fd;margin-bottom:9px}
 .q{font-size:22px;font-weight:700;line-height:1.32;letter-spacing:-.4px}
 
+/* Startseite: Identitaet oben, darunter zwei Spalten */
+.start{max-width:1000px;margin:0 auto}
+.start .brand{justify-content:center}
+.start .sub{text-align:center}
+.startgrid{display:grid;gap:13px}
+@media(min-width:820px){.startgrid{grid-template-columns:1fr 1fr;align-items:start}}
+.ident{display:flex;gap:14px;align-items:flex-end}
+.ident>div{flex:1;min-width:0}
+.prevrow{display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px 14px;
+  border-radius:14px;background:rgba(255,255,255,.045);border:1px solid var(--line)}
+.prevrow .av{width:42px;height:42px;border-radius:13px}
+.emogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px;margin-top:2px}
+.emogrid button{margin:0;padding:0;aspect-ratio:1;font-size:19px;line-height:1;border-radius:11px;
+  background:rgba(255,255,255,.05);border:1px solid var(--line);box-shadow:none;transition:.14s}
+.emogrid button.on{background:rgba(139,92,246,.3);border-color:rgba(139,92,246,.75);transform:scale(1.06)}
+.av.emo{font-size:19px}
+.prevrow .av.emo{font-size:22px}
 .plist{list-style:none}
 .plist li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .plist li:last-child{border:0}.plist li:first-child{padding-top:2px}
@@ -289,10 +306,15 @@ const LS={
   /* Nur loeschen, was diesem Tab gehoert – mehrere Tabs teilen sich den Speicher. */
   delMine(k){ const o=this.get(k,null); if(o&&o.owner&&o.owner!==myPid) return; this.del(k); }
 };
+const EMOJIS=["🦊","🐼","🐸","🐙","🦉","🐝","🦄","🐺","🦁","🐨","🦈","🐢","🐧","🦋",
+  "👽","🤖","👻","🎃","💀","🥷","🧙","🕶️","🎩","👑",
+  "🍕","🌮","🍄","🍩","⚡","🔥","🌵","🌙"];
+let myEmoji=LS.get("fi_emoji","")||"";
 function hue(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return h; }
 function avatar(p,cls){
   const h=hue(p.pid||p.name||"x");
   const off=(p.online===false)?" off":"";
+  if(p.emoji) return `<span class="av emo${off}${cls?" "+cls:""}" style="background:linear-gradient(140deg,hsl(${h} 55% 30%),hsl(${(h+42)%360} 55% 20%))">${p.emoji}</span>`;
   return `<span class="av${off}${cls?" "+cls:""}" style="background:linear-gradient(140deg,hsl(${h} 82% 68%),hsl(${(h+42)%360} 82% 58%))">${esc((p.name||"?").trim().charAt(0).toUpperCase())}</span>`;
 }
 
@@ -360,7 +382,7 @@ function saveHost(){
 }
 function sendTo(p,msg){ const c=p.connId&&conns[p.connId]; if(c&&c.open){ try{c.send(msg);}catch(_){} } }
 
-function hostJoin(connId,pid,name){
+function hostJoin(connId,pid,name,emoji){
   if(H.kicked.includes(pid)){
     const c=conns[connId]; if(c&&c.open) c.send({t:"denied"});
     return;
@@ -369,8 +391,9 @@ function hostJoin(connId,pid,name){
   if(p){                                   // Wiederkehrer: alles bleibt erhalten
     p.connId=connId; p.online=true; p.offSince=0; p.quick=false; p.lastSeen=Date.now();
     if(name) p.name=uniqueName(name,pid);
+    if(emoji) p.emoji=emoji;
   }else{
-    p={pid,name:uniqueName(name||"Spieler",pid),score:0,answer:null,vote:null,question:"",
+    p={pid,name:uniqueName(name||"Spieler",pid),emoji:emoji||"",score:0,answer:null,vote:null,question:"",
        online:true,connId,lastSeen:Date.now(),waiting:H.phase!=="lobby"};
     H.players.push(p);
   }
@@ -487,7 +510,7 @@ function publicState(){
     tally:H.tally,topIds:H.topIds,caught:H.caught,chat:H.chat,
     tAnswer:H.tAnswer||0, tTalk:H.tTalk||0, tVote:H.tVote||0, deadline:H.deadline||0,
     players:H.players.map(p=>({
-      pid:p.pid,name:p.name,score:p.score,online:p.online,waiting:!!p.waiting,
+      pid:p.pid,name:p.name,emoji:p.emoji||"",score:p.score,online:p.online,waiting:!!p.waiting,
       answered:p.answer!=null,voted:p.vote!=null,
       answer:show?p.answer:null,vote:H.phase==="result"?p.vote:null
     }))
@@ -503,7 +526,7 @@ function broadcast(){
 }
 function hostHandle(connId,pid,msg){
   if(!H||!msg) return;
-  if(msg.t==="join"){ hostJoin(connId,msg.pid,msg.name); return; }
+  if(msg.t==="join"){ hostJoin(connId,msg.pid,msg.name,msg.emoji); return; }
   const p=hp(pid); if(!p) return;
   p.lastSeen=Date.now();
   if(msg.t==="ping"){                       // Herzschlag: zurueck aus kurzer Stille
@@ -563,11 +586,11 @@ function claim(code,restore,attempt){
       H=restore; H.kicked=H.kicked||[]; H.chat=H.chat||[];
       H.tAnswer=H.tAnswer||0; H.tTalk=H.tTalk||0; H.tVote=H.tVote||0;
       const me=hp(myPid);
-      if(me){ me.online=true; me.connId=null; myName=me.name; }
-      else H.players.push({pid:myPid,name:myName,score:0,answer:null,vote:null,question:"",online:true,connId:null});
+      if(me){ me.online=true; me.connId=null; myName=me.name; me.emoji=myEmoji||me.emoji||""; }
+      else H.players.push({pid:myPid,name:myName,emoji:myEmoji,score:0,answer:null,vote:null,question:"",online:true,connId:null});
     }else{
       H=freshState();
-      H.players.push({pid:myPid,name:myName,score:0,answer:null,vote:null,question:"",online:true,connId:null});
+      H.players.push({pid:myPid,name:myName,emoji:myEmoji,score:0,answer:null,vote:null,question:"",online:true,connId:null});
     }
     screen="game"; banner=""; broadcast();
     clearInterval(sweepTimer); sweepTimer=setInterval(hostSweep,2000);
@@ -615,7 +638,7 @@ function connectHost(){
   const guard=setTimeout(()=>{ if(!c.open) scheduleRetry(); },9000);
   c.on("open",()=>{
     clearTimeout(guard); retries=0; banner=""; lastHb=Date.now();
-    screen="game"; c.send({t:"join",pid:myPid,name:myName}); render();
+    screen="game"; c.send({t:"join",pid:myPid,name:myName,emoji:myEmoji}); render();
   });
   c.on("data",d=>{
     if(!d) return;
@@ -707,7 +730,8 @@ function stateTitle(){
   return "Warteraum";
 }
 function updateTitle(){
-  const unread=document.hidden?Math.max(0,(S?(S.chat||[]).length:0)-chatSeen):0;
+  if(!S||screen!=="game"){ document.title=TITLE; return; }
+  const unread=document.hidden?Math.max(0,(S.chat||[]).length-chatSeen):0;
   document.title=(unread?"("+unread+") ":"")+stateTitle()+" · "+TITLE;
 }
 function notify(short,body,sound){
@@ -780,7 +804,7 @@ function render(){
 function viewStart(){
   const saved=LS.get("fi_host",null), room=LS.get("fi_room",null);
   const fresh=o=>o&&Date.now()-o.ts<MAXAGE&&(!o.owner||o.owner===myPid);
-  paint(`<div class="solo">`+HEAD+
+  paint(`<div class="start">`+HEAD+
   `<p class="sub">Alle beantworten dieselbe Frage – nur einer bekommt eine andere. Findet heraus, wer lügt.</p>`+
   (fresh(saved)?`<div class="card glow rise"><h2>Raum ${esc(saved.code)} fortsetzen</h2>
      <div class="note" style="margin-top:0">Dein letzter Raum läuft noch – Punkte und Spieler bleiben erhalten.</div>
@@ -790,15 +814,43 @@ function viewStart(){
      <div class="note" style="margin-top:0">Du warst als <b>${esc(room.name)}</b> dabei.</div>
      <button id="back">Wieder beitreten</button>
      <button id="backx" class="sec">Verwerfen</button></div>`:"")+
-  `<div class="card rise"><label for="nm">Dein Name</label>
+  `<div class="card rise">
+     <label for="nm">Dein Name</label>
      <input id="nm" maxlength="16" placeholder="z.B. Alex" autocomplete="nickname">
-     <button id="mk">Neuen Raum erstellen</button></div>
-   <div class="card rise"><label for="cd">Raum-Code</label>
-     <input id="cd" class="code" maxlength="4" placeholder="XXXX" autocomplete="off" autocapitalize="characters">
-     <button id="jn" class="sec">Raum beitreten</button></div>
+     <label style="margin-top:16px">Dein Emoji</label>
+     <div class="emogrid" id="emo">${EMOJIS.map(e=>
+        `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
+     <div id="prev"></div>
+   </div>
+   <div class="startgrid">
+     <div class="card rise"><h2>Neuen Raum aufmachen</h2>
+       <div class="note" style="margin-top:0">Du bist der Host, stellst die Zeiten ein und startest die Runden.</div>
+       <button id="mk">Raum erstellen</button></div>
+     <div class="card rise"><h2>Einem Raum beitreten</h2>
+       <label for="cd" style="margin-top:10px">Raum-Code</label>
+       <input id="cd" class="code" maxlength="4" placeholder="XXXX" autocomplete="off" autocapitalize="characters">
+       <button id="jn" class="sec">Beitreten</button></div>
+   </div>
    <div class="foot">Läuft direkt zwischen euren Geräten.<br>Kein Konto, keine Daten auf einem Server.</div></div>`);
+
   const nm=el("nm"),cd=el("cd");
   nm.value=LS.get("fi_name","")||"";
+  /* Live-Vorschau: genau so taucht man gleich in der Spielerliste auf. */
+  const prev=()=>{
+    el("prev").innerHTML=`<div class="prevrow">
+      ${avatar({pid:myPid,name:nm.value.trim()||"Spieler",emoji:myEmoji})}
+      <span class="nm">${esc(nm.value.trim()||"Spieler")}<span class="tag you">du</span></span>
+      <span class="pts">0 Pkt</span></div>`;
+  };
+  prev();
+  nm.oninput=prev;
+  app.querySelectorAll("#emo [data-e]").forEach(b=>b.onclick=()=>{
+    myEmoji=(myEmoji===b.dataset.e)?"":b.dataset.e;
+    LS.set("fi_emoji",myEmoji);
+    app.querySelectorAll("#emo [data-e]").forEach(x=>x.classList.toggle("on",x.dataset.e===myEmoji));
+    prev();
+  });
+
   const name=()=>{ const n=(nm.value.trim()||"Spieler").slice(0,16); LS.set("fi_name",nm.value.trim()); return n; };
   el("mk").onclick=()=>{ LS.delMine("fi_host"); LS.delMine("fi_room"); startHost(name()); };
   el("jn").onclick=()=>{ const c=cd.value.trim().toUpperCase(); if(c.length<4){cd.focus();return;} LS.delMine("fi_host"); startClient(c,name()); };
@@ -814,12 +866,31 @@ function viewInvite(){
   paint(`<div class="solo">`+HEAD+
   `<p class="sub">Du wurdest eingeladen</p>
    <div class="card glow code-hero rise"><div class="lbl">Raum</div><div class="val">${esc(inviteCode)}</div></div>
-   <div class="card rise"><label for="nm">Wie heißt du?</label>
+   <div class="card rise">
+     <label for="nm">Wie heißt du?</label>
      <input id="nm" maxlength="16" placeholder="Dein Name" autocomplete="nickname" enterkeyhint="go">
-     <button id="jn">Raum beitreten</button></div>
+     <label style="margin-top:16px">Dein Emoji</label>
+     <div class="emogrid" id="emo">${EMOJIS.map(e=>
+        `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
+     <div id="prev"></div>
+     <button id="jn">Raum beitreten</button>
+   </div>
    <button id="own" class="sec">Lieber einen eigenen Raum erstellen</button>
    <div class="foot">Ab 3 Spielern kann der Host die Runde starten.</div></div>`);
   const nm=el("nm"); nm.value=LS.get("fi_name","")||"";
+  const prev=()=>{
+    el("prev").innerHTML=`<div class="prevrow">
+      ${avatar({pid:myPid,name:nm.value.trim()||"Spieler",emoji:myEmoji})}
+      <span class="nm">${esc(nm.value.trim()||"Spieler")}<span class="tag you">du</span></span>
+      <span class="pts">0 Pkt</span></div>`;
+  };
+  prev(); nm.oninput=prev;
+  app.querySelectorAll("#emo [data-e]").forEach(b=>b.onclick=()=>{
+    myEmoji=(myEmoji===b.dataset.e)?"":b.dataset.e;
+    LS.set("fi_emoji",myEmoji);
+    app.querySelectorAll("#emo [data-e]").forEach(x=>x.classList.toggle("on",x.dataset.e===myEmoji));
+    prev();
+  });
   const go=()=>{ const n=(nm.value.trim()||"Spieler").slice(0,16); LS.set("fi_name",nm.value.trim()); startClient(inviteCode,n); };
   el("jn").onclick=go; nm.onkeydown=e=>{ if(e.key==="Enter") go(); };
   el("own").onclick=()=>{ inviteCode=""; screen="start"; render(); };
@@ -892,7 +963,7 @@ function chatCard(){
       <b style="font-size:15px">Chat</b><span class="pts">zuklappen</span></div>
     <div class="chat-log" id="clog">${
       msgs.length?msgs.map(m=>`<div class="msg ${m.pid===myPid?"me":""}">
-        ${avatar({pid:m.pid,name:m.name})}
+        ${avatar({pid:m.pid,name:m.name,emoji:(S.players.find(x=>x.pid===m.pid)||{}).emoji})}
         <div class="bub"><div class="au">${esc(m.name)}</div><div class="tx">${esc(m.text)}</div></div></div>`).join("")
       :`<div class="chat-empty">Noch nichts geschrieben.</div>`}</div>
     <div class="chat-in" style="flex:none"><input id="ci" maxlength="300" placeholder="Nachricht…" autocomplete="off" enterkeyhint="send">
@@ -915,7 +986,7 @@ function playersCard(mode){
       <span class="nm">${esc(p.name)}${p.pid===myPid?'<span class="tag you">du</span>':""}${p.pid===S.hostId?'<span class="tag host">Host</span>':""}${mode==="score"&&p.score===best&&best>0?'<span class="tag win">vorn</span>':""}
       ${p.online?"":"<small>nicht verbunden</small>"}</span>
       ${status(p)}
-      ${mode==="lobby"&&isHost&&p.pid!==myPid?`<button class="mini" data-kick="${esc(p.pid)}">Kick</button>`:""}</li>`).join("")}</ul>
+      ${mode==="lobby"&&isHost&&p.pid!==myPid?`<button class="mini" data-kick="${esc(p.pid)}" title="Spieler entfernen">✕</button>`:""}</li>`).join("")}</ul>
     ${mode==="score"?`<div class="note">Erwischt die Mehrheit den Lügner, bekommt das ganze Team +1. Kommt er durch, bekommt er allein +1.</div>`:""}
   </div>`;
 }
