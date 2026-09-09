@@ -115,6 +115,24 @@ function viewLobby(){
     `<div class="card glow code-hero rise"><div class="lbl">Raum-Code</div><div class="val">${esc(S.code)}</div>
        <button id="cp" class="sec">Einladungslink kopieren</button></div>
      ${on<3?`<div class="card rise note" style="margin-top:0">Es fehlen noch ${3-on} Spieler – ab 3 geht es los.</div>`:""}
+     <div class="card rise"><h2>Fragen-Kategorien</h2>
+       ${isHost?`<div class="note" style="margin-top:0">Nichts ausgewählt heißt: alle Kategorien. Sonst wird nur aus den gewählten gezogen.</div>
+         <div class="katgrid">${KATEGORIEN.map(k=>{
+            const anzahl=PAIRS.filter(x=>x[2]===k.id).length;
+            const an=S.kat.indexOf(k.id)>=0;
+            return `<button class="katbtn ${an?"on":""}" data-kat="${k.id}">
+              <span class="kate">${k.emoji}</span>
+              <span class="katn">${esc(k.name)}<small>${anzahl} Paare</small></span></button>`;
+         }).join("")}</div>
+         <div class="row" style="margin-top:10px">
+           <button id="katalle" class="sec" style="margin:0">Alle</button>
+           <button id="katnix" class="sec" style="margin:0">Auswahl leeren</button>
+         </div>`
+       :`<div class="note" style="margin-top:0">${S.kat.length
+            ?"Der Host spielt mit: "+S.kat.map(id=>{const k=KATEGORIEN.find(x=>x.id===id);return k?k.emoji+" "+esc(k.name):id;}).join(", ")
+            :"Alle Kategorien sind im Spiel."}</div>`}
+       <div class="hint">${S.vorrat} Fragenpaare stehen bereit.</div>
+     </div>
      <div class="card rise"><h2>Zeitlimits</h2>
        ${isHost?["answer","talk","vote"].map(k=>{
          const titel={answer:"Antwortzeit",talk:"Besprechungszeit",vote:"Zeit zum Abstimmen"}[k];
@@ -135,20 +153,21 @@ function viewLobby(){
              <span class="pts">${t}</span><b>${v?secLabel(v):"ohne Limit"}</b></div>`).join("")}
        <div class="note">${isHost?"Kurze Zeiten per Knopf, längere als Minutenzahl eintragen (2 bis 60). Läuft eine Zeit ab, geht es automatisch weiter.":"Der Host stellt die Zeiten ein."}</div>
      </div>
-     <div class="card rise"><h2>Dein Aussehen</h2>
-       <div class="note" style="margin-top:0">Emoji und Farbe kannst du hier jederzeit wechseln. Der Name bleibt.</div>
-       <div id="prev"></div>
-       <label style="margin-top:14px">Emoji</label>
-       <div class="emogrid" id="emo">${EMOJIS.map(e=>
-          `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
-       <label style="margin-top:14px">Farbe</label>
-       <div class="colgrid" id="col">${FARBEN.map(h=>
-          `<button data-c="${h}" class="${myColor===h?"on":""}" title="Farbe"
-            style="background:linear-gradient(140deg,hsl(${h} 70% 55%),hsl(${(h+42)%360} 70% 42%))"></button>`).join("")}</div>
-     </div>
-     <div class="card rise"><label>Ton</label>
-       <div class="note" style="margin-top:0">Ein kurzes Signal, sobald du dran bist. Gilt nur für dich.</div>
-       <button id="sndbig" class="sec">${soundOn?"🔊 Ton ist an – ausschalten":"🔇 Ton ist aus – einschalten"}</button>
+     <div class="card rise" id="skincard">
+       <div id="skinhead" style="cursor:pointer;display:flex;align-items:center;gap:11px">
+         ${avatar({pid:myPid,name:(S.players.find(x=>x.pid===myPid)||{}).name||myName,emoji:myEmoji,color:myColor})}
+         <b style="font-size:15px;flex:1">Dein Aussehen</b>
+         <span class="pts">${skinOpen?"zuklappen":"ändern"}</span>
+       </div>
+       ${skinOpen?`<div class="note">Emoji und Farbe kannst du jederzeit wechseln. Der Name bleibt.</div>
+         <div id="prev"></div>
+         <label style="margin-top:14px">Emoji</label>
+         <div class="emogrid" id="emo">${EMOJIS.map(e=>
+            `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
+         <label style="margin-top:14px">Farbe</label>
+         <div class="colgrid" id="col">${FARBEN.map(h=>
+            `<button data-c="${h}" class="${myColor===h?"on":""}" title="Farbe"
+              style="background:linear-gradient(140deg,hsl(${h} 70% 55%),hsl(${(h+42)%360} 70% 42%))"></button>`).join("")}</div>`:""}
      </div>
      ${(canNotify()&&!notifyOn&&Notification.permission!=="denied")?`<div class="card rise"><label>Benachrichtigungen</label>
         <div class="note" style="margin-top:0">Damit du es mitbekommst, wenn eine neue Runde startet – auch wenn der Tab im Hintergrund ist.</div>
@@ -163,6 +182,15 @@ function viewLobby(){
     catch(_){ prompt("Link zum Teilen:",link); }
   };
   if(el("notif")) el("notif").onclick=askNotify;
+  /* Kategorien umschalten – wirkt sofort auf den Vorrat. */
+  app.querySelectorAll("[data-kat]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.kat, liste=S.kat.slice();
+    const i=liste.indexOf(id);
+    if(i>=0) liste.splice(i,1); else liste.push(id);
+    act({t:"kat",ids:liste});
+  });
+  if(el("katalle")) el("katalle").onclick=()=>act({t:"kat",ids:[]});
+  if(el("katnix")) el("katnix").onclick=()=>act({t:"kat",ids:KATEGORIEN.map(k=>k.id).slice(0,1)});
   app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>act({t:"timer",which:b.dataset.t,sec:+b.dataset.sec}));
   app.querySelectorAll("[data-min]").forEach(b=>{
     const k=b.dataset.min, feld=el("min-"+k);
@@ -174,7 +202,7 @@ function viewLobby(){
     b.onclick=uebernehmen;
     if(feld) feld.onkeydown=e=>{ if(e.key==="Enter") uebernehmen(); };
   });
-  if(el("sndbig")) el("sndbig").onclick=()=>{ soundOn=!soundOn; LS.set("fi_sound",soundOn); if(soundOn) beep("soft"); render(); };
+  if(el("skinhead")) el("skinhead").onclick=()=>{ skinOpen=!skinOpen; LS.set("fi_skinopen",skinOpen); render(); };
   /* Aussehen im Warteraum wechseln – wirkt sofort bei allen. */
   const ich=S.players.find(x=>x.pid===myPid)||{};
   const zeigeVorschau=()=>{

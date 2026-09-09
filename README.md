@@ -14,7 +14,7 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
 |---|---|
 | `index.html` | Grundgerüst, lädt Stil und Skripte |
 | `css/style.css` | Gesamte Gestaltung |
-| `js/questions.js` | Die 157 Fragenpaare |
+| `js/questions.js` | Die 157 Fragenpaare und die 11 Kategorien |
 | `js/core.js` | Speicher, Identität, Hilfsfunktionen, gemeinsamer Zustand |
 | `js/host.js` | Spiellogik – der Host hält den Zustand |
 | `js/net.js` | Verbindungsaufbau und Herzschlag zwischen den Geräten |
@@ -28,6 +28,11 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
 
 - **157 Fragenpaare**, 314 verschiedene Fragen, keine doppelt. Der Host zieht
   ohne Zurücklegen – erst wenn alle durch sind, fängt der Vorrat von vorn an.
+- **11 Kategorien** (Zahlen, Alltag, Essen, Orte, Menschen, Über dich, Dinge,
+  Arbeit, Medien, Feste, Fantasie). Der Host wählt im Warteraum aus, woraus
+  gezogen wird; nichts ausgewählt heißt alle. Die anderen sehen die Auswahl.
+- Sobald alle geantwortet oder abgestimmt haben, geht es sofort weiter –
+  ein laufender Timer wird nicht abgewartet.
 - **Frage überspringen:** Der Host kann jederzeit eine neue Frage ziehen.
 - **Drei Zeitlimits** (Antwort, Besprechung, Abstimmung): Knöpfe für kurze Zeiten,
   daneben ein Feld für eine freie Minutenzahl von 2 bis 60. Nur der Host darf das.
@@ -40,6 +45,11 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
 - **Kein Flackern:** Die Oberfläche wird nicht neu aufgebaut, sondern es wird nur
   das geändert, was sich unterscheidet – Eingaben, Cursor und Scrollposition bleiben.
 - Signalton und sprechender Tab-Titel bei jedem Phasenwechsel.
+
+## Zwischenspeicher
+
+Die Dateien werden mit `?v=<Version>` eingebunden. Bei jeder Veröffentlichung wird
+die Nummer erhöht, damit niemand eine Mischung aus alten und neuen Dateien lädt.
 
 ## Technik
 

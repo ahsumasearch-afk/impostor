@@ -62,6 +62,7 @@ let myQuestion="";
 let screen="start";      // start | invite | connecting | game | error | kicked
 let errMsg="",banner="";
 let draftAnswer="",draftChat="",chatOpen=LS.get("fi_chatopen",true),chatSeen=0;
+let skinOpen=LS.get("fi_skinopen",false);
 let retryTimer=null,retries=0;
 
 const url=new URL(location.href);

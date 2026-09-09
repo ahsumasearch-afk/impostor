@@ -3,7 +3,7 @@
 function freshState(){
   return {phase:"lobby",round:0,players:[],mainQuestion:"",impostorId:null,
           tally:{},topIds:[],caught:false,chat:[],kicked:[],
-          tAnswer:0,tTalk:0,tVote:0,deadline:0,used:[]};
+          tAnswer:0,tTalk:0,tVote:0,deadline:0,used:[],kat:[]};
 }
 const GRACE=18000;   // Reserve fuer stille Faelle
 const QUICK=4000;    // abgemeldet oder Herzschlag ausgeblieben: nur kurz auf Rueckkehr warten
@@ -73,12 +73,25 @@ function hostKick(pid){
   setTimeout(()=>{ try{c&&c.close();}catch(_){} },300);
   checkAnswers(); checkVotes(); broadcast();
 }
-/* Zieht ein Fragenpaar ohne Zuruecklegen: Erst wenn alle Paare durch sind,
-   faengt der Vorrat von vorn an. So kommt an einem Abend nichts doppelt. */
+/* Alle Paare, die zu den gewaehlten Kategorien gehoeren. Leere Auswahl = alle. */
+function vorrat(){
+  const aktiv=(H.kat&&H.kat.length)?H.kat:null;
+  const liste=[];
+  for(let i=0;i<PAIRS.length;i++) if(!aktiv||aktiv.indexOf(PAIRS[i][2])>=0) liste.push(i);
+  return liste.length?liste:PAIRS.map(function(_,i){return i;});
+}
+/* Zieht ein Fragenpaar ohne Zuruecklegen. Erst wenn der gewaehlte Vorrat
+   erschoepft ist, wird nur dieser Teil wieder freigegeben – die Historie
+   der anderen Kategorien bleibt bestehen. */
 function ziehePaar(){
-  if(!H.used||H.used.length>=PAIRS.length) H.used=[];
-  let i;
-  do { i=(Math.random()*PAIRS.length)|0; } while(H.used.indexOf(i)>=0);
+  if(!H.used) H.used=[];
+  const pool=vorrat();
+  let frei=pool.filter(function(i){ return H.used.indexOf(i)<0; });
+  if(!frei.length){
+    H.used=H.used.filter(function(i){ return pool.indexOf(i)<0; });
+    frei=pool;
+  }
+  const i=frei[(Math.random()*frei.length)|0];
   H.used.push(i);
   return PAIRS[i];
 }
@@ -170,6 +183,7 @@ function publicState(){
     impostorQuestion:H.phase==="result"?((hp(H.impostorId)||{}).question||""):"",
     tally:H.tally,topIds:H.topIds,caught:H.caught,chat:H.chat,
     tAnswer:H.tAnswer||0, tTalk:H.tTalk||0, tVote:H.tVote||0, deadline:H.deadline||0,
+    kat:H.kat||[], vorrat:vorrat().length,
     players:H.players.map(p=>({
       pid:p.pid,name:p.name,emoji:p.emoji||"",color:(p.color===0||p.color)?p.color:null,score:p.score,online:p.online,waiting:!!p.waiting,
       answered:p.answer!=null,voted:p.vote!=null,
@@ -209,6 +223,13 @@ function hostHandle(connId,pid,msg){
     case "force":                                 // Host: ohne die Abwesenden weiter
       if(pid===myPid){ checkAnswers(true); checkVotes(true); broadcast(); } return;
     case "start":  if(pid===myPid&&H.phase==="lobby") hostStartRound(); return;
+    case "kat":                                   // Kategorien waehlen (nur Host, nur im Warteraum)
+      if(pid===myPid&&H.phase==="lobby"&&Array.isArray(msg.ids)){
+        const gueltig=KATEGORIEN.map(function(k){return k.id;});
+        H.kat=msg.ids.filter(function(x){ return gueltig.indexOf(x)>=0; });
+        broadcast();
+      }
+      return;
     case "skip":                                  // Host ueberspringt die aktuelle Frage
       if(pid===myPid&&H.phase==="answer"){ neueFrage(); broadcast(); } return;
     case "skin":                                  // Emoji/Farbe im Warteraum aendern
