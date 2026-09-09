@@ -304,3 +304,16 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
   .onlydesk{display:block;margin-top:13px}
   .chip.only-mobile{display:none}
 }
+
+/* --- Ergebnis: pro Spieler Frage, Antwort und Stimme --- */
+.rundenzeile{padding:13px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.rundenzeile:last-child{border:0;padding-bottom:2px}
+.rundenzeile:first-child{padding-top:2px}
+.rundenzeile .kopf{display:flex;align-items:center;gap:11px;margin-bottom:8px}
+.rundenzeile .kopf .who{flex:1;min-width:0;font-size:15px;font-weight:700;color:var(--tx);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rundenzeile .qzeile{font-size:12.5px;font-weight:600;color:var(--mut);
+  border-left:2px solid var(--line2);padding-left:9px;margin-bottom:5px}
+.rundenzeile .qzeile.imp{color:#fda4af;border-left-color:rgba(251,113,133,.6)}
+.rundenzeile .azeile{font-size:17px;font-weight:700;line-height:1.3;padding-left:11px;word-break:break-word}
+.rundenzeile .vzeile{font-size:13.5px;color:var(--mut);padding-left:11px;margin-top:4px}

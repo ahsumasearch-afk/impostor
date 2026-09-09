@@ -378,19 +378,22 @@ function viewResult(){
          <div class="qbox imp"><div class="k">${esc(imp?imp.name:"Der Lügner")} bekam</div>
            <div class="v">${esc(S.impostorQuestion||"—")}</div></div>
        </div></div>
-     <div class="card rise"><h2>Wer hat wen gewählt</h2>
+     <div class="card rise"><h2>Die Runde im Überblick</h2>
        ${inR.map(p=>{
          const ziel=p.vote?S.players.find(x=>x.pid===p.vote):null;
          const richtig=ziel&&ziel.pid===S.impostorId;
          const bekommen=votesFor(p.pid).length;
-         return `<div class="ans">${avatar(p)}
-           <div style="flex:1;min-width:0">
-             <div class="who">${esc(p.name)}${p.pid===S.impostorId?'<span class="tag imp">Lügner</span>':""}</div>
-             <div class="txt" style="font-size:15.5px">${
-               ziel?`<span style="color:var(--mut);font-weight:500">stimmte für</span> <span style="color:${richtig?"var(--ok)":"var(--tx)"}">${esc(ziel.name)}</span>${richtig?' <span style="color:var(--ok)">✓</span>':""}`
-                   :`<span style="color:var(--mut);font-weight:500">hat nicht abgestimmt</span>`}</div>
+         const luegner=p.pid===S.impostorId;
+         return `<div class="rundenzeile">
+           <div class="kopf">${avatar(p)}
+             <span class="who">${esc(p.name)}${p.pid===myPid?" · du":""}${luegner?'<span class="tag imp">Lügner</span>':""}</span>
+             ${bekommen?`<span class="pts">${bekommen} ${bekommen===1?"Stimme":"Stimmen"}</span>`:""}
            </div>
-           ${bekommen?`<span class="pts">${bekommen} ${bekommen===1?"Stimme":"Stimmen"}</span>`:""}
+           <div class="qzeile ${luegner?"imp":""}">${esc(p.question||"—")}</div>
+           <div class="azeile">${esc(p.answer||"keine Antwort")}</div>
+           <div class="vzeile">${
+             ziel?`stimmte für <b style="color:${richtig?"var(--ok)":"var(--tx)"}">${esc(ziel.name)}</b>${richtig?' <span style="color:var(--ok)">✓</span>':""}`
+                 :`hat nicht abgestimmt`}</div>
          </div>`;
        }).join("")}</div>
      ${isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="sec">Zurück in den Warteraum</button>`

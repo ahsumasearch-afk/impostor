@@ -191,7 +191,8 @@ function publicState(){
     players:H.players.map(p=>({
       pid:p.pid,name:p.name,emoji:p.emoji||"",color:(p.color===0||p.color)?p.color:null,score:p.score,online:p.online,waiting:!!p.waiting,
       answered:p.answer!=null,voted:p.vote!=null,
-      answer:show?p.answer:null,vote:H.phase==="result"?p.vote:null
+      answer:show?p.answer:null,
+      question:H.phase==="result"?p.question:"",vote:H.phase==="result"?p.vote:null
     }))
   };
 }

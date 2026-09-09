@@ -42,6 +42,8 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
   Kommt er durch, bekommt er allein +1 – auch wer richtig getippt hat, geht dann leer aus.
 - **Aussehen:** Name, Emoji aus über 100 Symbolen, 16 kräftige Farbtöne plus
   freier Farbwähler – im Warteraum jederzeit änderbar (nicht der Name).
+- **Ergebnis:** Bei jedem Namen stehen seine Frage, seine Antwort und für wen er
+  gestimmt hat – die abweichende Frage des Lügners ist farblich abgesetzt.
 - **Raum-Code oben in der Leiste:** antippen kopiert den Einladungslink.
 - **Warteraum:** alle Abschnitte sind zuklappbar und zeigen zugeklappt eine
   Zusammenfassung. „Runde starten" sitzt auf dem Desktop unter der Spielerliste.
