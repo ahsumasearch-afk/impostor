@@ -269,3 +269,35 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .chip.code .cl{opacity:.75}
 .chip.code .ci{opacity:.75;font-size:12px}
 .chip.code .ok{font-weight:700;color:#a7f3d0}
+
+/* --- Einheitliche Klapp-Karten im Warteraum --- */
+.klapp{display:flex;align-items:center;gap:11px;cursor:pointer;user-select:none}
+.klapp b{font-size:15.5px;font-weight:700;flex:none}
+.klapp .kurz{flex:1;text-align:right;font-size:13px;font-weight:600;color:var(--mut);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.klapp .pfeil{flex:none;color:var(--mut);font-size:13px;width:14px;text-align:center}
+.klapp:hover .kurz,.klapp:hover .pfeil{color:var(--tx)}
+.klappinhalt{margin-top:14px}
+.zeile{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.zeile:last-child{border:0}
+
+/* Ausgewaehlte Kategorien deutlich markieren */
+.katbtn .hak{flex:none;margin-left:auto;font-size:13px;font-weight:800;color:#a7f3d0}
+.katbtn:not(.on){opacity:.5}
+.katbtn:disabled{cursor:default}
+
+/* Eigener Farbwaehler */
+.pickrow{display:flex;align-items:center;gap:12px;margin-top:2px}
+#colpick{flex:none;width:56px;height:44px;padding:0;border:1px solid var(--line2);
+  border-radius:12px;background:none;cursor:pointer}
+#colpick::-webkit-color-swatch-wrapper{padding:3px}
+#colpick::-webkit-color-swatch{border:0;border-radius:9px}
+
+/* Sichtbarkeit je nach Breite */
+.onlymob{display:block}
+.onlydesk{display:none}
+@media(min-width:900px){
+  .onlymob{display:none}
+  .onlydesk{display:block;margin-top:13px}
+  .chip.only-mobile{display:none}
+}

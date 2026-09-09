@@ -22,7 +22,28 @@ const EMOJIS=[
   "🍕","🌮","🍄","🍩","🍔","🌭","🍟","🍿","🍦","🍪","🥑","🍉","🍒","🌶️","🥕","☕",
   "🍺","🧃","🎸","🎮","🎲","🃏","🚀","🛸","⚽","🏀","🎯","🧠","👁️","🦷","💎","🔮",
   "⚡","🔥","🌵","🌙","🌈","⭐","❄️","🌊","🪐","🧲","🎪","🍀"];
-const FARBEN=[265,285,320,340,0,18,35,50,80,140,165,190,210,235];   // Farbtoene
+const FARBEN=[265,285,310,330,350,10,25,40,55,85,120,155,180,200,220,245];  // Farbtoene
+/* Umrechnung fuer den freien Farbwaehler: Wir speichern nur den Farbton,
+   damit Avatare ueberall dieselbe kraeftige Abstufung bekommen. */
+function hexZuHue(hex){
+  const r=parseInt(hex.substr(1,2),16)/255, g=parseInt(hex.substr(3,2),16)/255, b=parseInt(hex.substr(5,2),16)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  if(!d) return 0;
+  let h;
+  if(max===r) h=((g-b)/d)%6; else if(max===g) h=(b-r)/d+2; else h=(r-g)/d+4;
+  h=Math.round(h*60); return h<0?h+360:h;
+}
+function hueZuHex(h,s,l){
+  s=(s===undefined)?.95:s; l=(l===undefined)?.6:l;
+  const a=s*Math.min(l,1-l);
+  const f=n=>{
+    const k=(n+h/30)%12;
+    const c=l-a*Math.max(-1,Math.min(k-3,Math.min(9-k,1)));
+    return Math.round(255*c).toString(16).padStart(2,"0");
+  };
+  return "#"+f(0)+f(8)+f(4);
+}
+
 let myEmoji=LS.get("fi_emoji","")||"";
 let myColor=LS.get("fi_color",null);
 const farbeVon=p=>(p.color===0||p.color)?p.color:hue(p.pid||p.name||"x");
@@ -30,8 +51,8 @@ function hue(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%3
 function avatar(p,cls){
   const h=farbeVon(p);
   const off=(p.online===false)?" off":"";
-  if(p.emoji) return `<span class="av emo${off}${cls?" "+cls:""}" style="background:linear-gradient(140deg,hsl(${h} 55% 30%),hsl(${(h+42)%360} 55% 20%))">${p.emoji}</span>`;
-  return `<span class="av${off}${cls?" "+cls:""}" style="background:linear-gradient(140deg,hsl(${h} 82% 68%),hsl(${(h+42)%360} 82% 58%))">${esc((p.name||"?").trim().charAt(0).toUpperCase())}</span>`;
+  if(p.emoji) return `<span class="av emo${off}${cls?" "+cls:""}" style="background:linear-gradient(140deg,hsl(${h} 85% 52%),hsl(${(h+40)%360} 85% 38%))">${p.emoji}</span>`;
+  return `<span class="av${off}${cls?" "+cls:""}" style="background:linear-gradient(140deg,hsl(${h} 90% 66%),hsl(${(h+40)%360} 90% 52%))">${esc((p.name||"?").trim().charAt(0).toUpperCase())}</span>`;
 }
 
 /* Eigene Identität. Überlebt Neuladen (sessionStorage bleibt im Tab bestehen),
@@ -63,6 +84,7 @@ let screen="start";      // start | invite | connecting | game | error | kicked
 let errMsg="",banner="";
 let draftAnswer="",draftChat="",chatOpen=LS.get("fi_chatopen",true),chatSeen=0;
 let skinOpen=LS.get("fi_skinopen",false);
+let offeneKarten=LS.get("fi_offen",null)||{kat:false,zeit:false,skin:false,notif:false};
 let copiedUntil=0;                 /* zeigt kurz "Link kopiert" in der Raum-Pille */
 
 /* Kopiert Text in die Zwischenablage. Die moderne Schnittstelle verlangt einen

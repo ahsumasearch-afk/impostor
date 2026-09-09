@@ -38,9 +38,11 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
   daneben ein Feld für eine freie Minutenzahl von 2 bis 60. Nur der Host darf das.
 - **Teamwertung:** Erwischt die Mehrheit den Lügner, bekommt jeder im Team +1.
   Kommt er durch, bekommt er allein +1 – auch wer richtig getippt hat, geht dann leer aus.
-- **Aussehen:** Name, Emoji aus über 100 Symbolen und eine von 14 Farben,
-  im Warteraum jederzeit änderbar (Emoji und Farbe, nicht der Name).
+- **Aussehen:** Name, Emoji aus über 100 Symbolen, 16 kräftige Farbtöne plus
+  freier Farbwähler – im Warteraum jederzeit änderbar (nicht der Name).
 - **Raum-Code oben in der Leiste:** antippen kopiert den Einladungslink.
+- **Warteraum:** alle Abschnitte sind zuklappbar und zeigen zugeklappt eine
+  Zusammenfassung. „Runde starten" sitzt auf dem Desktop unter der Spielerliste.
 - **Chat pro Raum**, Kick-Funktion für den Host, Raum verlassen für alle.
 - **Neuladen ändert nichts:** Punkte, Name und Platz bleiben, auch beim Host.
 - **Kein Flackern:** Die Oberfläche wird nicht neu aufgebaut, sondern es wird nur

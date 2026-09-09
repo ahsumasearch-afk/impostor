@@ -15,7 +15,7 @@ function topbar(){
     <span class="chip btn only-mobile" id="plbtn">Spieler (${S.players.length})</span>
     <span class="chip btn" id="sndbtn" title="Ton an- oder ausschalten">${soundOn?"🔊 Ton an":"🔇 Ton aus"}</span>
     ${S.deadline?`<span class="chip clock"><span class="clockv">${fmtTime(timeLeft()||0)}</span></span>`:""}
-    <span class="chip btn ${unread?"act":""}" id="chattop">Chat${unread?` <span class="bdg">${unread}</span>`:""}</span>
+    <span class="chip btn only-mobile ${unread?"act":""}" id="chattop">Chat${unread?` <span class="bdg">${unread}</span>`:""}</span>
     <span class="chip btn danger" id="${isHost?"closeroom":"leave"}">${isHost?"Raum schließen":"Raum verlassen"}</span>
   </div>`+(idx>=0?`<div class="steps">${steps.map((x,i)=>`<div class="step ${i<=idx?"on":""}"></div>`).join("")}</div>`:"");
 }
@@ -121,85 +121,115 @@ function forceBtn(kind){
   return `<button id="force" class="sec">Ohne ${gone.length===1?esc(gone[0].name):gone.length+" Abwesende"} weitermachen</button>`;
 }
 
+/* Ein einheitlicher Klapp-Baustein. Die Kopfzeile zeigt immer eine kurze
+   Zusammenfassung, damit man den Stand auch im zugeklappten Zustand sieht. */
+function klapp(id,titel,inhalt,kurz,vorne){
+  const offen=!!offeneKarten[id];
+  return `<div class="card rise">
+    <div class="klapp" data-klapp="${id}">
+      ${vorne||""}
+      <b>${titel}</b>
+      <span class="kurz">${kurz||""}</span>
+      <span class="pfeil">${offen?"▾":"▸"}</span>
+    </div>
+    ${offen?`<div class="klappinhalt">${inhalt}</div>`:""}
+  </div>`;
+}
+function zeitKurz(v){ return v?secLabel(v):"ohne"; }
+
 function viewLobby(){
-  const link=location.origin+location.pathname+"?r="+S.code;
   const on=S.players.filter(p=>p.online).length;
+  const alle=S.kat.length===0;
+  const aktiv=id=>alle||S.kat.indexOf(id)>=0;
+
+  const katInhalt=`<div class="katgrid">${KATEGORIEN.map(k=>{
+      const anzahl=PAIRS.filter(x=>x[2]===k.id).length;
+      return `<button class="katbtn ${aktiv(k.id)?"on":""}" data-kat="${k.id}" ${isHost?"":"disabled"}>
+        <span class="kate">${k.emoji}</span>
+        <span class="katn">${esc(k.name)}<small>${anzahl} Paare</small></span>
+        <span class="hak">${aktiv(k.id)?"✓":""}</span></button>`;
+    }).join("")}</div>
+    ${isHost?`<div class="row" style="margin-top:11px">
+       <button id="katalle" class="sec" style="margin:0">Alle auswählen</button>
+       <button id="katnix" class="sec" style="margin:0">Nur eine</button>
+     </div>`:""}`;
+
+  const zeitInhalt=isHost
+    ? ["answer","talk","vote"].map(k=>{
+        const titel={answer:"Antwortzeit",talk:"Besprechungszeit",vote:"Zeit zum Abstimmen"}[k];
+        const wert={answer:S.tAnswer,talk:S.tTalk,vote:S.tVote}[k];
+        return `<label style="margin-top:14px">${titel}</label>
+          <div class="seg seg3">${[0,30,60].map(v=>
+             `<button data-t="${k}" data-sec="${v}" class="${wert===v?"on":""}">${v?secLabel(v):"ohne"}</button>`).join("")}</div>
+          <div class="minrow">
+            <input class="mininput" type="number" min="2" max="60" step="1" inputmode="numeric"
+                   id="min-${k}" placeholder="Minuten" value="${wert>60?wert/60:""}">
+            <button class="minset ${wert>60?"on":""}" data-min="${k}">übernehmen</button>
+          </div>`;
+      }).join("")
+    : [["Antwortzeit",S.tAnswer],["Besprechungszeit",S.tTalk],["Abstimmung",S.tVote]].map(([t,v])=>
+        `<div class="zeile"><span class="pts">${t}</span><b>${v?secLabel(v):"ohne Limit"}</b></div>`).join("");
+
+  const ich=S.players.find(x=>x.pid===myPid)||{};
+  const skinInhalt=`<div id="prev"></div>
+     <label style="margin-top:14px">Emoji</label>
+     <div class="emogrid" id="emo">${EMOJIS.map(e=>
+        `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
+     <label style="margin-top:14px">Farbe</label>
+     <div class="colgrid" id="col">${FARBEN.map(h=>
+        `<button data-c="${h}" class="${myColor===h?"on":""}"
+          style="background:linear-gradient(140deg,hsl(${h} 95% 62%),hsl(${(h+40)%360} 95% 46%))"></button>`).join("")}</div>
+     <label for="colpick" style="margin-top:14px">Eigene Farbe</label>
+     <div class="pickrow">
+       <input type="color" id="colpick" value="${hueZuHex(myColor==null?265:myColor)}">
+       <span class="note" style="margin:0">Beliebigen Ton wählen – der Avatar übernimmt ihn sofort.</span>
+     </div>`;
+
+  const startKnopf=n=>isHost
+    ? `<button id="go${n}" ${on<3?"disabled":""}>Runde starten</button>`
+    : `<div class="card tight center note rise" style="margin:0 0 13px">Warte auf den Host…</div>`;
+
   paint(HEAD+frame(
-    `<div class="card rise note" style="margin-top:0">
-       ${on<3?`Es fehlen noch ${3-on} Spieler – ab 3 geht es los. `:""}Tippe oben auf <b>Raum ${esc(S.code)}</b>, um den Einladungslink zu kopieren.</div>`+
-     `
-     <div class="card rise"><h2>Fragen-Kategorien</h2>
-       ${isHost?`<div class="note" style="margin-top:0">Nichts ausgewählt heißt: alle Kategorien. Sonst wird nur aus den gewählten gezogen.</div>
-         <div class="katgrid">${KATEGORIEN.map(k=>{
-            const anzahl=PAIRS.filter(x=>x[2]===k.id).length;
-            const an=S.kat.indexOf(k.id)>=0;
-            return `<button class="katbtn ${an?"on":""}" data-kat="${k.id}">
-              <span class="kate">${k.emoji}</span>
-              <span class="katn">${esc(k.name)}<small>${anzahl} Paare</small></span></button>`;
-         }).join("")}</div>
-         <div class="row" style="margin-top:10px">
-           <button id="katalle" class="sec" style="margin:0">Alle</button>
-           <button id="katnix" class="sec" style="margin:0">Auswahl leeren</button>
-         </div>`
-       :`<div class="note" style="margin-top:0">${S.kat.length
-            ?"Der Host spielt mit: "+S.kat.map(id=>{const k=KATEGORIEN.find(x=>x.id===id);return k?k.emoji+" "+esc(k.name):id;}).join(", ")
-            :"Alle Kategorien sind im Spiel."}</div>`}
-       <div class="hint">${S.vorrat} Fragenpaare stehen bereit.</div>
-     </div>
-     <div class="card rise"><h2>Zeitlimits</h2>
-       ${isHost?["answer","talk","vote"].map(k=>{
-         const titel={answer:"Antwortzeit",talk:"Besprechungszeit",vote:"Zeit zum Abstimmen"}[k];
-         const wert={answer:S.tAnswer,talk:S.tTalk,vote:S.tVote}[k];
-         const opt=[0,30,60];
-         const frei=wert>60?wert/60:"";
-         return `<label style="margin-top:14px">${titel}</label>
-           <div class="seg seg3">${opt.map(v=>
-              `<button data-t="${k}" data-sec="${v}" class="${wert===v?"on":""}">${v?secLabel(v):"ohne"}</button>`).join("")}</div>
-           <div class="minrow">
-             <input class="mininput" type="number" min="2" max="60" step="1" inputmode="numeric"
-                    id="min-${k}" placeholder="Minuten" value="${frei}">
-             <button class="minset ${wert>60?"on":""}" data-min="${k}">übernehmen</button>
-           </div>`;
-       }).join("")
-       :[["Antwortzeit",S.tAnswer],["Besprechungszeit",S.tTalk],["Abstimmung",S.tVote]].map(([t,v])=>
-          `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)">
-             <span class="pts">${t}</span><b>${v?secLabel(v):"ohne Limit"}</b></div>`).join("")}
-       <div class="note">${isHost?"Kurze Zeiten per Knopf, längere als Minutenzahl eintragen (2 bis 60). Läuft eine Zeit ab, geht es automatisch weiter.":"Der Host stellt die Zeiten ein."}</div>
-     </div>
-     <div class="card rise" id="skincard">
-       <div id="skinhead" style="cursor:pointer;display:flex;align-items:center;gap:11px">
-         ${avatar({pid:myPid,name:(S.players.find(x=>x.pid===myPid)||{}).name||myName,emoji:myEmoji,color:myColor})}
-         <b style="font-size:15px;flex:1">Dein Aussehen</b>
-         <span class="pts">${skinOpen?"zuklappen":"ändern"}</span>
-       </div>
-       ${skinOpen?`<div class="note">Emoji und Farbe kannst du jederzeit wechseln. Der Name bleibt.</div>
-         <div id="prev"></div>
-         <label style="margin-top:14px">Emoji</label>
-         <div class="emogrid" id="emo">${EMOJIS.map(e=>
-            `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
-         <label style="margin-top:14px">Farbe</label>
-         <div class="colgrid" id="col">${FARBEN.map(h=>
-            `<button data-c="${h}" class="${myColor===h?"on":""}" title="Farbe"
-              style="background:linear-gradient(140deg,hsl(${h} 70% 55%),hsl(${(h+42)%360} 70% 42%))"></button>`).join("")}</div>`:""}
-     </div>
-     ${(canNotify()&&!notifyOn&&Notification.permission!=="denied")?`<div class="card rise"><label>Benachrichtigungen</label>
-        <div class="note" style="margin-top:0">Damit du es mitbekommst, wenn eine neue Runde startet – auch wenn der Tab im Hintergrund ist.</div>
-        <button id="notif" class="sec">Benachrichtigungen einschalten</button></div>`:""}
-     ${isHost?`<button id="go" ${on<3?"disabled":""}>Runde starten</button>`
-             :`<div class="card center note rise">Warte auf den Host…</div>`}
-     ${exitBtn()}`,
-    playersCard("lobby"),chatCard()));
+    klapp("kat","Fragen-Kategorien",katInhalt,
+          alle?`alle · ${S.vorrat} Paare`:`${S.kat.length} von ${KATEGORIEN.length} · ${S.vorrat} Paare`)+
+    klapp("zeit","Zeitlimits",zeitInhalt,
+          `${zeitKurz(S.tAnswer)} · ${zeitKurz(S.tTalk)} · ${zeitKurz(S.tVote)}`)+
+    klapp("skin","Dein Aussehen",skinInhalt,"",
+          avatar({pid:myPid,name:ich.name||myName,emoji:myEmoji,color:myColor}))+
+    ((canNotify()&&!notifyOn&&Notification.permission!=="denied")
+      ? klapp("notif","Benachrichtigungen",
+          `<div class="note" style="margin-top:0">Damit du es mitbekommst, wenn eine neue Runde startet – auch wenn der Tab im Hintergrund liegt.</div>
+           <button id="notif" class="sec">Einschalten</button>`,"aus")
+      : "")+
+    `<div class="onlymob">${startKnopf("2")}</div>`,
+    playersCard("lobby")+`<div class="onlydesk">${startKnopf("")}</div>`,
+    chatCard()));
+
   wire();
-  if(el("notif")) el("notif").onclick=askNotify;
-  /* Kategorien umschalten – wirkt sofort auf den Vorrat. */
-  app.querySelectorAll("[data-kat]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.kat, liste=S.kat.slice();
-    const i=liste.indexOf(id);
-    if(i>=0) liste.splice(i,1); else liste.push(id);
-    act({t:"kat",ids:liste});
+
+  app.querySelectorAll("[data-klapp]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.klapp;
+    offeneKarten[id]=!offeneKarten[id];
+    LS.set("fi_offen",offeneKarten);
+    render();
   });
-  if(el("katalle")) el("katalle").onclick=()=>act({t:"kat",ids:[]});
-  if(el("katnix")) el("katnix").onclick=()=>act({t:"kat",ids:KATEGORIEN.map(k=>k.id).slice(0,1)});
+
+  if(el("notif")) el("notif").onclick=askNotify;
+
+  if(isHost){
+    app.querySelectorAll("[data-kat]").forEach(b=>b.onclick=()=>{
+      const id=b.dataset.kat;
+      let liste=S.kat.length?S.kat.slice():KATEGORIEN.map(k=>k.id);
+      const i=liste.indexOf(id);
+      if(i>=0) liste.splice(i,1); else liste.push(id);
+      if(!liste.length) liste=[id];                     // mindestens eine Kategorie
+      if(liste.length===KATEGORIEN.length) liste=[];    // wieder alle
+      act({t:"kat",ids:liste});
+    });
+    if(el("katalle")) el("katalle").onclick=()=>act({t:"kat",ids:[]});
+    if(el("katnix")) el("katnix").onclick=()=>act({t:"kat",ids:[KATEGORIEN[0].id]});
+  }
+
   app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>act({t:"timer",which:b.dataset.t,sec:+b.dataset.sec}));
   app.querySelectorAll("[data-min]").forEach(b=>{
     const k=b.dataset.min, feld=el("min-"+k);
@@ -211,9 +241,7 @@ function viewLobby(){
     b.onclick=uebernehmen;
     if(feld) feld.onkeydown=e=>{ if(e.key==="Enter") uebernehmen(); };
   });
-  if(el("skinhead")) el("skinhead").onclick=()=>{ skinOpen=!skinOpen; LS.set("fi_skinopen",skinOpen); render(); };
-  /* Aussehen im Warteraum wechseln – wirkt sofort bei allen. */
-  const ich=S.players.find(x=>x.pid===myPid)||{};
+
   const zeigeVorschau=()=>{
     const v=el("prev"); if(!v) return;
     v.innerHTML=`<div class="prevrow">${avatar({pid:myPid,name:ich.name||myName,emoji:myEmoji,color:myColor})}
@@ -221,23 +249,31 @@ function viewLobby(){
       <span class="pts">${ich.score||0} Pkt</span></div>`;
   };
   zeigeVorschau();
+  const merkeSkin=()=>{ LS.set("fi_emoji",myEmoji); LS.set("fi_color",myColor);
+    zeigeVorschau(); act({t:"skin",emoji:myEmoji,color:myColor}); };
   app.querySelectorAll("#emo [data-e]").forEach(b=>b.onclick=()=>{
-    myEmoji=(myEmoji===b.dataset.e)?"":b.dataset.e; LS.set("fi_emoji",myEmoji);
+    myEmoji=(myEmoji===b.dataset.e)?"":b.dataset.e;
     app.querySelectorAll("#emo [data-e]").forEach(x=>x.classList.toggle("on",x.dataset.e===myEmoji));
-    zeigeVorschau(); act({t:"skin",emoji:myEmoji,color:myColor});
+    merkeSkin();
   });
   app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>{
-    myColor=+b.dataset.c; LS.set("fi_color",myColor);
+    myColor=+b.dataset.c;
     app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",+x.dataset.c===myColor));
-    zeigeVorschau(); act({t:"skin",emoji:myEmoji,color:myColor});
+    merkeSkin();
   });
-  if(isHost){
-    if(el("go")) el("go").onclick=()=>act({t:"start"});
-    app.querySelectorAll("[data-kick]").forEach(b=>b.onclick=()=>{
-      if(confirm("Diesen Spieler entfernen?")) act({t:"kick",pid:b.dataset.kick});
-    });
-  }
+  const pick=el("colpick");
+  if(pick) pick.oninput=()=>{
+    myColor=hexZuHue(pick.value);
+    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.remove("on"));
+    merkeSkin();
+  };
+
+  ["go","go2"].forEach(id=>{ if(el(id)) el(id).onclick=()=>act({t:"start"}); });
+  app.querySelectorAll("[data-kick]").forEach(b=>b.onclick=()=>{
+    if(confirm("Diesen Spieler entfernen?")) act({t:"kick",pid:b.dataset.kick});
+  });
 }
+
 /* Nachzügler sehen nur einen Wartebildschirm – nichts aus der laufenden Runde. */
 function viewWaiting(){
   paint(HEAD+frame(
