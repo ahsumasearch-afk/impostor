@@ -61,10 +61,11 @@ function render(){
   announce();
   if(chatOpen) chatSeen=(S.chat||[]).length;
   const me=S.players.find(p=>p.pid===myPid);
-  if(me&&me.waiting&&S.phase!=="lobby") return viewWaiting();   // Nachzuegler: nur warten
+  if(me&&me.waiting&&S.phase!=="lobby"&&S.phase!=="podium") return viewWaiting();   // Nachzuegler: nur warten
   if(S.phase==="lobby")  return viewLobby();
   if(S.phase==="answer") return viewAnswer(me);
   if(S.phase==="reveal") return viewReveal(me);
   if(S.phase==="vote")   return viewVote(me);
   if(S.phase==="result") return viewResult(me);
+  if(S.phase==="podium") return viewPodium();
 }

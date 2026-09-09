@@ -123,6 +123,10 @@ let draftAnswer="",draftChat="",chatOpen=LS.get("fi_chatopen",true),chatSeen=0;
 let skinOpen=LS.get("fi_skinopen",false);
 let offeneKarten=LS.get("fi_offen",null)||{kat:false,zeit:false,skin:false,notif:false};
 let chatEmojiOpen=false;           /* Emoji-Feld im Chat auf- oder zugeklappt */
+let antwortAuf=null;               /* Nachricht, auf die gerade geantwortet wird */
+const REAKTIONEN=["👍","😂","❤️","😮","😢","🔥"];   /* Schnellreaktionen im Chat */
+const uhrzeit=ts=>{ const d=new Date(ts||Date.now());
+  return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); };
 let copiedUntil=0;                 /* zeigt kurz "Link kopiert" in der Raum-Pille */
 
 /* Kopiert Text in die Zwischenablage. Die moderne Schnittstelle verlangt einen

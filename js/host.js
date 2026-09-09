@@ -1,7 +1,10 @@
 /* Host-Logik: Der Host ist der Spielserver und haelt den Zustand. */
 
 function freshState(){
-  return {phase:"lobby",round:0,players:[],mainQuestion:"",impostorId:null,
+  return {phase:"lobby",round:0,players:[],mainQuestion:"",
+          impIds:[],                 // die Luegner dieser Runde
+          maxRounds:0,               // 0 = unbegrenzt
+          impCount:1,                // gewuenschte Anzahl Luegner
           tally:{},topIds:[],caught:false,chat:[],kicked:[],
           tAnswer:0,tTalk:0,tVote:0,deadline:0,used:[],
           kat:KATEGORIEN.map(function(k){return k.id;})};
@@ -99,18 +102,26 @@ function ziehePaar(){
   return PAIRS[i];
 }
 /* Verteilt eine frische Frage in der laufenden Runde – auch fuer den Skip-Knopf. */
+/* Wie viele Luegner sind bei dieser Spielerzahl moeglich?
+   Mindestens ein ehrlicher Spieler muss uebrig bleiben. */
+function maxLuegner(n){ return Math.max(1,n-1); }
 function neueFrage(){
   const act=H.players.filter(p=>p.online);
   if(!act.length) return;
   const pair=ziehePaar(), flip=Math.random()<.5;
   const main=flip?pair[1]:pair[0], other=flip?pair[0]:pair[1];
-  const imp=act[(Math.random()*act.length)|0];
-  H.mainQuestion=main; H.impostorId=imp.pid;
+  const wieViele=Math.min(H.impCount||1,maxLuegner(act.length));
+  const topf=act.slice();
+  H.impIds=[];
+  for(let i=0;i<wieViele&&topf.length;i++){
+    H.impIds.push(topf.splice((Math.random()*topf.length)|0,1)[0].pid);
+  }
+  H.mainQuestion=main;
   H.tally={}; H.topIds=[]; H.caught=false;
   clearTimeout(graceTimer);
   H.players.forEach(p=>{ p.answer=null; p.vote=null;
     p.waiting=!p.online;                       // wer gerade weg ist, sitzt die Runde aus
-    p.question=(p.pid===imp.pid)?other:main; });
+    p.question=(H.impIds.indexOf(p.pid)>=0)?other:main; });
   setDeadline("answer");
 }
 function hostStartRound(){
@@ -143,15 +154,20 @@ function finishVotes(){
   const max=werte.length?Math.max(...werte):0;
   const tops=Object.keys(t).filter(k=>t[k]===max);
   H.tally=t; H.topIds=tops;
-  H.caught=tops.length===1&&tops[0]===H.impostorId;
-  if(H.caught) inRound().forEach(p=>{ if(p.pid!==H.impostorId) p.score+=1; });
-  else { const i=hp(H.impostorId); if(i) i.score+=1; }
+  const istLuegner=pid=>H.impIds.indexOf(pid)>=0;
+  H.caught=tops.length===1&&istLuegner(tops[0]);
+  if(H.caught) inRound().forEach(p=>{ if(!istLuegner(p.pid)) p.score+=1; });
+  else inRound().forEach(p=>{ if(istLuegner(p.pid)) p.score+=1; });
   H.phase="result"; H.deadline=0;
+  /* Nach der letzten Runde folgt statt einer weiteren das Podium. */
+  if(H.maxRounds&&H.round>=H.maxRounds) H.phase="podium";
 }
-function hostChat(pid,text){
+function hostChat(pid,text,replyTo){
   const p=hp(pid); if(!p) return;
   text=String(text||"").trim().slice(0,300); if(!text) return;
-  H.chat.push({id:uid(),pid,name:p.name,text,ts:Date.now()});
+  const bezug=replyTo&&H.chat.find(x=>x.id===replyTo);
+  H.chat.push({id:uid(),pid,name:p.name,text,ts:Date.now(),
+    re:bezug?{id:bezug.id,name:bezug.name,text:bezug.text.slice(0,90)}:null});
   if(H.chat.length>120) H.chat=H.chat.slice(-120);
   broadcast();
 }
@@ -183,8 +199,11 @@ function publicState(){
   return {
     phase:H.phase,round:H.round,code:roomCode,hostId:myPid,
     mainQuestion:H.phase==="answer"?"":H.mainQuestion,
-    impostorId:H.phase==="result"?H.impostorId:null,
-    impostorQuestion:H.phase==="result"?((hp(H.impostorId)||{}).question||""):"",
+    impIds:(H.phase==="result"||H.phase==="podium")?(H.impIds||[]):[],
+    impostorQuestion:(H.phase==="result"||H.phase==="podium")
+      ?((hp((H.impIds||[])[0])||{}).question||""):"",
+    maxRounds:H.maxRounds||0, impCount:H.impCount||1,
+    maxImp:maxLuegner(H.players.filter(p=>p.online).length),
     tally:H.tally,topIds:H.topIds,caught:H.caught,chat:H.chat,
     tAnswer:H.tAnswer||0, tTalk:H.tTalk||0, tVote:H.tVote||0, deadline:H.deadline||0,
     kat:H.kat||[], vorrat:vorrat().length,
@@ -192,7 +211,7 @@ function publicState(){
       pid:p.pid,name:p.name,emoji:p.emoji||"",color:(p.color===0||p.color)?p.color:null,score:p.score,online:p.online,waiting:!!p.waiting,
       answered:p.answer!=null,voted:p.vote!=null,
       answer:show?p.answer:null,
-      question:H.phase==="result"?p.question:"",vote:H.phase==="result"?p.vote:null
+      question:(H.phase==="result"||H.phase==="podium")?p.question:"",vote:H.phase==="result"?p.vote:null
     }))
   };
 }
@@ -216,12 +235,12 @@ function hostHandle(connId,pid,msg){
   switch(msg.t){
     case "answer":
       if(H.phase!=="answer"||p.waiting) return;
-      p.answer=String(msg.text||"").trim().slice(0,80)||"—";
+      p.answer=String(msg.text||"").trim().slice(0,250)||"—";
       checkAnswers(); broadcast(); return;
     case "vote":
       if(H.phase!=="vote"||p.waiting||msg.target===pid||!hp(msg.target)) return;
       p.vote=msg.target; checkVotes(); broadcast(); return;
-    case "chat": hostChat(pid,msg.text); return;
+    case "chat": hostChat(pid,msg.text,msg.replyTo); return;
     case "bye":                                   // Spieler verlaesst die Seite
       p.online=false; p.quick=true; p.offSince=Date.now();
       armGrace(QUICK+400); broadcast(); return;
@@ -244,7 +263,32 @@ function hostHandle(connId,pid,msg){
     case "tovote": if(pid===myPid&&H.phase==="reveal"){H.phase="vote";setDeadline("vote");broadcast();} return;
     case "next":   if(pid===myPid&&H.phase==="result") hostStartRound(); return;
     case "lobby":  if(pid===myPid){H.phase="lobby";H.deadline=0;broadcast();} return;
-    case "kick":   if(pid===myPid&&H.phase==="lobby") hostKick(msg.pid); return;
+    case "kick":   if(pid===myPid) hostKick(msg.pid); return;   // auch mitten in der Runde
+    case "rounds":
+      if(pid===myPid&&H.phase==="lobby"&&typeof msg.n==="number"&&msg.n>=0&&msg.n<=99){
+        H.maxRounds=Math.round(msg.n); broadcast();
+      } return;
+    case "imps":
+      if(pid===myPid&&H.phase==="lobby"&&typeof msg.n==="number"){
+        H.impCount=Math.max(1,Math.min(Math.round(msg.n),maxLuegner(H.players.filter(p=>p.online).length)));
+        broadcast();
+      } return;
+    case "reset":                                 // Punkte auf null fuer einen fairen Neustart
+      if(pid===myPid){
+        H.players.forEach(p=>{ p.score=0; });
+        H.round=0; H.phase="lobby"; H.deadline=0; broadcast();
+      } return;
+    case "react": {                               // Reaktion auf eine Chatnachricht
+      if(!msg.id||!msg.emoji) return;
+      const n=H.chat.find(x=>x.id===msg.id);
+      if(!n) return;
+      n.r=n.r||{};
+      const wer=n.r[msg.emoji]||[];
+      const idx=wer.indexOf(pid);
+      if(idx>=0) wer.splice(idx,1); else wer.push(pid);
+      if(wer.length) n.r[msg.emoji]=wer; else delete n.r[msg.emoji];
+      broadcast(); return;
+    }
     case "timer":                                 // Zeiten einstellen (nur Host, nur im Warteraum)
       if(pid===myPid&&H.phase==="lobby"&&typeof msg.sec==="number"&&msg.sec>=0&&msg.sec<=3600){
         if(msg.which==="answer") H.tAnswer=msg.sec;

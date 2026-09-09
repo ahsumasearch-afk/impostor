@@ -15,6 +15,7 @@ function topbar(){
     <span class="chip btn" id="sndbtn" title="Ton an- oder ausschalten">${soundOn?"🔊 Ton an":"🔇 Ton aus"}</span>
     ${S.deadline?`<span class="chip clock"><span class="clockv">${fmtTime(timeLeft()||0)}</span></span>`:""}
     <span class="chip btn only-mobile ${unread?"act":""}" id="chattop">Chat${unread?` <span class="bdg">${unread}</span>`:""}</span>
+    ${isHost?`<span class="chip btn" id="resetchip" title="Alle Punkte auf null">↺ Punkte zurücksetzen</span>`:""}
     <span class="chip btn danger" id="${isHost?"closeroom":"leave"}">${isHost?"Raum schließen":"Raum verlassen"}</span>
   </div>`+(idx>=0?`<div class="steps">${steps.map((x,i)=>`<div class="step ${i<=idx?"on":""}"></div>`).join("")}</div>`:"");
 }
@@ -38,6 +39,8 @@ function wire(){
   };
   const shut=()=>document.body.classList.remove("pl-open");
   const pb=el("plbtn"); if(pb) pb.onclick=()=>document.body.classList.toggle("pl-open");
+  const rc=el("resetchip");
+  if(rc) rc.onclick=()=>{ if(confirm("Alle Punkte auf null setzen und zurück in den Warteraum?")) act({t:"reset"}); };
   const sb=el("sndbtn"); if(sb) sb.onclick=()=>{ soundOn=!soundOn; LS.set("fi_sound",soundOn); if(soundOn) beep("soft"); render(); };
   const sc=el("scrim"); if(sc) sc.onclick=shut;
   const pc=el("pclose"); if(pc) pc.onclick=shut;
@@ -61,12 +64,27 @@ function wire(){
     f.focus();
     try{ f.setSelectionRange(a+e.length,a+e.length); }catch(_){}
   });
+  app.querySelectorAll("[data-antw]").forEach(b=>b.onclick=()=>{
+    const m=(S.chat||[]).find(x=>x.id===b.dataset.antw);
+    if(!m) return;
+    antwortAuf={id:m.id,name:m.name,text:m.text.slice(0,90)};
+    render(); setTimeout(()=>{ const f=el("ci"); if(f) f.focus(); },30);
+  });
+  if(el("antwx")) el("antwx").onclick=()=>{ antwortAuf=null; render(); };
+  app.querySelectorAll("[data-re]").forEach(b=>b.onclick=()=>
+    act({t:"react",id:b.dataset.re,emoji:b.dataset.remo}));
   const cs=el("csend"), ci=el("ci");
   if(cs&&ci){
-    const send=()=>{ const v=ci.value.trim(); if(!v) return; draftChat=""; ci.value=""; act({t:"chat",text:v}); ci.focus(); };
+    const send=()=>{ const v=ci.value.trim(); if(!v) return;
+      draftChat=""; ci.value="";
+      act({t:"chat",text:v,replyTo:antwortAuf?antwortAuf.id:null});
+      antwortAuf=null; ci.focus(); };
     cs.onclick=send; ci.onkeydown=e=>{ if(e.key==="Enter") send(); };
   }
   const f=el("force"); if(f) f.onclick=()=>act({t:"force"});
+  app.querySelectorAll("[data-kick]").forEach(b=>b.onclick=()=>{
+    if(confirm("Diesen Spieler entfernen?")) act({t:"kick",pid:b.dataset.kick});
+  });
 }
 function chatCard(){
   const msgs=S.chat||[], unread=Math.max(0,msgs.length-chatSeen);
@@ -79,10 +97,27 @@ function chatCard(){
     <div id="chathead" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <b style="font-size:15px">Chat</b><span class="pts">zuklappen</span></div>
     <div class="chat-log" id="clog">${
-      msgs.length?msgs.map(m=>`<div class="msg ${m.pid===myPid?"me":""}">
-        ${avatar(Object.assign({pid:m.pid,name:m.name},S.players.find(x=>x.pid===m.pid)||{}))}
-        <div class="bub"><div class="au">${esc(m.name)}</div><div class="tx">${esc(m.text)}</div></div></div>`).join("")
+      msgs.length?msgs.map(m=>{
+        const mein=m.pid===myPid;
+        const spieler=S.players.find(x=>x.pid===m.pid)||{};
+        const reaktionen=Object.keys(m.r||{});
+        return `<div class="msg ${mein?"me":""}" data-mid="${esc(m.id)}">
+          ${avatar(Object.assign({pid:m.pid,name:m.name},spieler))}
+          <div class="bub">
+            ${m.re?`<div class="zitat"><b>${esc(m.re.name)}</b>${esc(m.re.text)}</div>`:""}
+            <div class="au">${esc(m.name)} <span class="uhr">${uhrzeit(m.ts)}</span></div>
+            <div class="tx">${esc(m.text)}</div>
+            ${reaktionen.length?`<div class="reakt">${reaktionen.map(e=>
+               `<button class="rbtn ${(m.r[e]||[]).indexOf(myPid)>=0?"on":""}" data-re="${esc(m.id)}" data-remo="${e}">${e} ${m.r[e].length}</button>`).join("")}</div>`:""}
+            <div class="mact">
+              <button data-antw="${esc(m.id)}" title="Antworten">↩</button>
+              ${REAKTIONEN.map(e=>`<button data-re="${esc(m.id)}" data-remo="${e}">${e}</button>`).join("")}
+            </div>
+          </div></div>`;
+      }).join("")
       :`<div class="chat-empty">Noch nichts geschrieben.</div>`}</div>
+    ${antwortAuf?`<div class="antwortbar"><div class="zitat"><b>${esc(antwortAuf.name)}</b>${esc(antwortAuf.text)}</div>
+       <button id="antwx" title="Abbrechen">✕</button></div>`:""}
     ${chatEmojiOpen?`<div class="chatemo" id="cemo">${CHATEMOJIS.map(e=>
         `<button data-ce="${e}">${e}</button>`).join("")}</div>`:""}
     <div class="chat-in" style="flex:none">
@@ -90,6 +125,7 @@ function chatCard(){
       <input id="ci" maxlength="300" placeholder="Nachricht…" autocomplete="off" enterkeyhint="send">
       <button id="csend">→</button></div></div>`;
 }
+
 /* Spielerliste – je nach Phase mit Punkten, Status oder Kick-Knopf. */
 function playersCard(mode){
   const list=mode==="lobby"?S.players:S.players.filter(p=>!p.waiting);
@@ -107,7 +143,7 @@ function playersCard(mode){
       <span class="nm">${esc(p.name)}${p.pid===myPid?'<span class="tag you">du</span>':""}${p.pid===S.hostId?'<span class="tag host">Host</span>':""}${mode==="score"&&p.score===best&&best>0?'<span class="tag win">vorn</span>':""}
       ${p.online?"":"<small>nicht verbunden</small>"}</span>
       ${status(p)}
-      ${mode==="lobby"&&isHost&&p.pid!==myPid?`<button class="mini" data-kick="${esc(p.pid)}" title="Spieler entfernen">✕</button>`:""}</li>`).join("")}</ul>
+      ${isHost&&p.pid!==myPid?`<button class="mini" data-kick="${esc(p.pid)}" title="Spieler entfernen">✕</button>`:""}</li>`).join("")}</ul>
     ${mode==="score"?`<div class="note">Erwischt die Mehrheit den Lügner, bekommt das ganze Team +1. Kommt er durch, bekommt er allein +1.</div>`:""}
   </div>`;
 }
@@ -172,6 +208,25 @@ function viewLobby(){
        <button id="katnix" class="sec">Alle abwählen</button>
      </div>`:""}`;
 
+  const spielInhalt=isHost
+    ? `<label>Anzahl der Runden</label>
+       <div class="seg" style="grid-template-columns:repeat(4,1fr)">${[0,3,5,10].map(n=>
+          `<button data-rounds="${n}" class="${S.maxRounds===n?"on":""}">${n?n:"∞"}</button>`).join("")}</div>
+       <div class="minrow">
+         <input class="mininput" type="number" min="1" max="99" step="1" inputmode="numeric"
+                id="rundenzahl" placeholder="eigene Zahl" value="${[0,3,5,10].indexOf(S.maxRounds)<0?S.maxRounds:""}">
+         <button class="minset ${[0,3,5,10].indexOf(S.maxRounds)<0?"on":""}" id="rundenset">übernehmen</button>
+       </div>
+       <div class="note">Nach der letzten Runde wird das Podium gezeigt. ∞ heißt: es geht weiter, bis ihr aufhört.</div>
+       <label style="margin-top:16px">Anzahl der Lügner</label>
+       <div class="seg" id="impseg" style="grid-template-columns:repeat(${Math.min(S.maxImp,5)},1fr)">${
+         Array.from({length:Math.min(S.maxImp,5)},(_,i)=>i+1).map(n=>
+          `<button data-imps="${n}" class="${S.impCount===n?"on":""}">${n}</button>`).join("")}</div>
+       <div class="note">Bei ${S.players.filter(p=>p.online).length} Spielern sind bis zu ${S.maxImp} möglich –
+         ein ehrlicher Spieler muss übrig bleiben.</div>`
+    : `<div class="zeile"><span class="pts">Runden</span><b>${S.maxRounds?S.maxRounds:"ohne Ende"}</b></div>
+       <div class="zeile"><span class="pts">Lügner</span><b>${S.impCount}</b></div>`;
+
   const zeitInhalt=isHost
     ? ["answer","talk","vote"].map(k=>{
         const titel={answer:"Antwortzeit",talk:"Besprechungszeit",vote:"Zeit zum Abstimmen"}[k];
@@ -199,7 +254,7 @@ function viewLobby(){
           style="background:linear-gradient(140deg,hsl(${h} 95% 62%),hsl(${(h+40)%360} 95% 46%))"></button>`).join("")}</div>
      <label for="colpick" style="margin-top:14px">Eigene Farbe</label>
      <div class="pickrow">
-       <input type="color" id="colpick" value="${hueZuHex(myColor==null?265:myColor)}">
+       <input type="color" id="colpick">
        <span class="note" style="margin:0">Beliebigen Ton wählen – der Avatar übernimmt ihn sofort.</span>
      </div>`;
 
@@ -213,6 +268,8 @@ function viewLobby(){
           keine?`keine gewählt`
                :alle?`alle · ${S.vorrat} Paare`
                     :`${S.kat.length} von ${KATEGORIEN.length} · ${S.vorrat} Paare`)+
+    klapp("spiel","Spielverlauf",spielInhalt,
+          `${S.maxRounds?S.maxRounds+" Runden":"ohne Ende"} · ${S.impCount} ${S.impCount===1?"Lügner":"Lügner"}`)+
     klapp("zeit","Zeitlimits",zeitInhalt,
           `${zeitKurz(S.tAnswer)} · ${zeitKurz(S.tTalk)} · ${zeitKurz(S.tVote)}`)+
     klapp("skin","Dein Aussehen",skinInhalt,"",
@@ -249,6 +306,13 @@ function viewLobby(){
     if(el("katnix"))  el("katnix").onclick=()=>act({t:"kat",ids:[]});
   }
 
+  app.querySelectorAll("[data-rounds]").forEach(b=>b.onclick=()=>act({t:"rounds",n:+b.dataset.rounds}));
+  app.querySelectorAll("[data-imps]").forEach(b=>b.onclick=()=>act({t:"imps",n:+b.dataset.imps}));
+  if(el("rundenset")) el("rundenset").onclick=()=>{
+    const n=Math.round(+el("rundenzahl").value);
+    if(!(n>=1&&n<=99)){ el("rundenzahl").focus(); return; }
+    act({t:"rounds",n});
+  };
   app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>act({t:"timer",which:b.dataset.t,sec:+b.dataset.sec}));
   app.querySelectorAll("[data-min]").forEach(b=>{
     const k=b.dataset.min, feld=el("min-"+k);
@@ -281,11 +345,20 @@ function viewLobby(){
     merkeSkin();
   });
   const pick=el("colpick");
-  if(pick) pick.oninput=()=>{
-    myColor=hexZuHue(pick.value);
-    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.remove("on"));
-    merkeSkin();
-  };
+  if(pick){
+    /* Der Wert wird nur gesetzt, solange niemand im Waehler steht – sonst
+       springt die Auswahl beim naechsten Neuzeichnen zurueck. */
+    if(document.activeElement!==pick) pick.value=hueZuHex(myColor==null?265:myColor);
+    pick.oninput=()=>{                       // waehrend des Ziehens nur die Vorschau
+      myColor=hexZuHue(pick.value);
+      app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.remove("on"));
+      zeigeVorschau();
+    };
+    pick.onchange=()=>{                      // erst beim Loslassen an alle melden
+      myColor=hexZuHue(pick.value);
+      merkeSkin();
+    };
+  }
 
   ["go","go2"].forEach(id=>{ if(el(id)) el(id).onclick=()=>act({t:"start"}); });
   app.querySelectorAll("[data-kick]").forEach(b=>b.onclick=()=>{
@@ -313,7 +386,8 @@ function viewAnswer(me){
         <div class="bigclock clockv">${fmtTime(timeLeft()||0)}</div></div>`:"")+
     (done?`<div class="card center rise"><span class="spin"></span>Warte auf die anderen…</div>${forceBtn("answer")}`
          :`<div class="card rise"><label for="ai">Deine Antwort – kurz halten</label>
-             <input id="ai" maxlength="80" placeholder="Antwort…" autocomplete="off" enterkeyhint="send">
+             <input id="ai" maxlength="250" placeholder="Antwort…" autocomplete="off" enterkeyhint="send">
+             <div class="zaehler"><span id="zrest">250</span> Zeichen frei</div>
              <button id="sb">Antwort abschicken</button>
              <div class="hint">Zeig dein Handy niemandem – nicht jeder hat dieselbe Frage.</div></div>`)
     +(isHost?`<button id="skip" class="sec">Frage überspringen</button>
@@ -326,6 +400,9 @@ function viewAnswer(me){
   };
   if(!done){
     const ai=el("ai"); ai.focus();
+    const zeige=()=>{ const z=el("zrest"); if(z) z.textContent=String(250-ai.value.length); };
+    zeige();
+    ai.addEventListener("input",zeige);
     const send=()=>{ const v=ai.value.trim(); if(!v) return; draftAnswer=""; act({t:"answer",text:v}); };
     el("sb").onclick=send; ai.onkeydown=e=>{ if(e.key==="Enter") send(); };
   }
@@ -362,8 +439,44 @@ function viewVote(me){
   wire();
   if(!voted) app.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>act({t:"vote",target:b.dataset.v}));
 }
+/* Nach der letzten Runde: Podium mit den ersten drei, der Rest darunter. */
+function viewPodium(){
+  const sortiert=[...S.players].sort((a,b)=>b.score-a.score);
+  const podest=sortiert.slice(0,3), rest=sortiert.slice(3);
+  const plaetze=["🥇","🥈","🥉"];
+  paint(HEAD+frame(
+    `<div class="card glow center rise" style="padding:24px 18px">
+       <div class="qlbl">Endstand nach ${S.round} ${S.round===1?"Runde":"Runden"}</div>
+       <div class="big" style="font-size:30px">${podest.length?esc(podest[0].name)+" gewinnt":"Kein Ergebnis"}</div>
+     </div>
+     <div class="card rise">
+       <div class="podium">${podest.map((p,i)=>`
+         <div class="platz p${i+1}">
+           <div class="krone">${plaetze[i]}</div>
+           ${avatar(p)}
+           <div class="pname">${esc(p.name)}</div>
+           <div class="ppkt">${p.score} Pkt</div>
+         </div>`).join("")}</div>
+       ${rest.length?`<ul class="plist" style="margin-top:16px">${rest.map((p,i)=>`<li>
+         <span class="pts" style="width:26px">${i+4}.</span>${avatar(p)}
+         <span class="nm">${esc(p.name)}${p.pid===myPid?'<span class="tag you">du</span>':""}</span>
+         <span class="pts">${p.score} Pkt</span></li>`).join("")}</ul>`:""}
+     </div>
+     ${isHost?`<button id="neuesspiel">Neues Spiel starten</button>
+               <button id="lb2" class="sec">Zurück in den Warteraum</button>`
+             :`<div class="card center note rise">Der Host startet ein neues Spiel.</div>`}`,
+    playersCard("score"),chatCard()));
+  wire();
+  if(isHost){
+    el("neuesspiel").onclick=()=>act({t:"reset"});
+    el("lb2").onclick=()=>act({t:"lobby"});
+  }
+}
+
 function viewResult(){
-  const imp=S.players.find(p=>p.pid===S.impostorId);
+  const imps=S.players.filter(p=>(S.impIds||[]).indexOf(p.pid)>=0);
+  const istLuegner=pid=>(S.impIds||[]).indexOf(pid)>=0;
+  const impNamen=imps.map(p=>esc(p.name)).join(" & ")||"—";
   const inR=S.players.filter(p=>!p.waiting);
   const me=S.players.find(p=>p.pid===myPid);
   const votesFor=pid=>inR.filter(p=>p.vote===pid).map(p=>p.name);
@@ -372,12 +485,12 @@ function viewResult(){
      Ein einzelner richtiger Tipp zaehlt nicht, wenn die Mehrheit danebenliegt. */
   let verdict="";
   if(me&&!me.waiting){
-    const bin=me.pid===S.impostorId;
+    const bin=istLuegner(me.pid);
     const won=bin?!S.caught:S.caught;
-    const selbstRichtig=!bin&&me.vote===S.impostorId;
+    const selbstRichtig=!bin&&istLuegner(me.vote);
     const why=bin
-      ?(won?"Niemand hat dich erwischt. +1 Punkt für dich."
-           :"Die Mehrheit hat dich erwischt. Diese Runde geht an die anderen.")
+      ?(won?"Niemand hat euch erwischt. +1 Punkt."
+           :"Die Mehrheit hat euch erwischt. Diese Runde geht an die anderen.")
       :(won?"Ihr habt den Lügner gemeinsam erwischt. +1 Punkt für jeden im Team."
            :(selbstRichtig?"Dein Tipp war richtig – aber die Mehrheit lag daneben. Keine Punkte."
                           :"Die Mehrheit lag daneben. Der Punkt geht an den Lügner."));
@@ -389,19 +502,19 @@ function viewResult(){
   paint(HEAD+frame(
     verdict+
     `<div class="card glow rise">
-       <div class="qlbl">Der Lügner war</div>
-       <div class="big" style="margin:2px 0 14px">${esc(imp?imp.name:"—")}</div>
+       <div class="qlbl">${imps.length>1?"Die Lügner waren":"Der Lügner war"}</div>
+       <div class="big" style="margin:2px 0 14px">${impNamen}</div>
        <div class="qpair">
          <div class="qbox"><div class="k">Alle anderen bekamen</div><div class="v">${esc(S.mainQuestion)}</div></div>
-         <div class="qbox imp"><div class="k">${esc(imp?imp.name:"Der Lügner")} bekam</div>
+         <div class="qbox imp"><div class="k">${imps.length>1?"Die Lügner bekamen":impNamen+" bekam"}</div>
            <div class="v">${esc(S.impostorQuestion||"—")}</div></div>
        </div></div>
      <div class="card rise"><h2>Die Runde im Überblick</h2>
        ${inR.map(p=>{
          const ziel=p.vote?S.players.find(x=>x.pid===p.vote):null;
-         const richtig=ziel&&ziel.pid===S.impostorId;
+         const richtig=ziel&&istLuegner(ziel.pid);
          const bekommen=votesFor(p.pid).length;
-         const luegner=p.pid===S.impostorId;
+         const luegner=istLuegner(p.pid);
          return `<div class="rundenzeile">
            <div class="kopf">${avatar(p)}
              <span class="who">${esc(p.name)}${p.pid===myPid?" · du":""}${luegner?'<span class="tag imp">Lügner</span>':""}</span>

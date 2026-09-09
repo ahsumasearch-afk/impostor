@@ -49,6 +49,7 @@ function stateTitle(){
   if(S.phase==="reveal") return "💬 Auflösung – jetzt diskutieren";
   if(S.phase==="vote")   return me&&me.voted?"Warten auf die anderen":"🗳️ Jetzt abstimmen!";
   if(S.phase==="result") return "🏆 Ergebnis";
+  if(S.phase==="podium") return "🏆 Endstand";
   return "Warteraum";
 }
 function updateTitle(){
