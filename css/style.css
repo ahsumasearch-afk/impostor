@@ -259,3 +259,13 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .katbtn .kate{font-size:19px;line-height:1;flex:none}
 .katbtn .katn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .katbtn .katn small{display:block;font-size:11.5px;font-weight:500;opacity:.7}
+
+/* --- Raum-Code als Kopier-Pille in der Kopfleiste --- */
+.chip.code{background:linear-gradient(120deg,rgba(139,92,246,.32),rgba(34,211,238,.22));
+  border-color:rgba(139,92,246,.6);color:#fff;padding:7px 14px;font-size:13.5px;
+  box-shadow:0 4px 18px rgba(99,102,241,.28)}
+.chip.code:hover{filter:brightness(1.15)}
+.chip.code b{font-size:16px;letter-spacing:2.5px;color:#fff}
+.chip.code .cl{opacity:.75}
+.chip.code .ci{opacity:.75;font-size:12px}
+.chip.code .ok{font-weight:700;color:#a7f3d0}

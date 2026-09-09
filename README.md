@@ -40,6 +40,7 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
   Kommt er durch, bekommt er allein +1 – auch wer richtig getippt hat, geht dann leer aus.
 - **Aussehen:** Name, Emoji aus über 100 Symbolen und eine von 14 Farben,
   im Warteraum jederzeit änderbar (Emoji und Farbe, nicht der Name).
+- **Raum-Code oben in der Leiste:** antippen kopiert den Einladungslink.
 - **Chat pro Raum**, Kick-Funktion für den Host, Raum verlassen für alle.
 - **Neuladen ändert nichts:** Punkte, Name und Platz bleiben, auch beim Host.
 - **Kein Flackern:** Die Oberfläche wird nicht neu aufgebaut, sondern es wird nur

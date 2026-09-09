@@ -6,7 +6,10 @@ function topbar(){
   const steps=["answer","reveal","vote","result"];
   const idx=steps.indexOf(S.phase);
   return `<div class="chips">
-    <span class="chip">Raum <b>${esc(S.code)}</b></span>
+    <span class="chip code btn" id="codechip" title="Einladungslink kopieren">${
+      Date.now()<copiedUntil
+        ? `<span class="ok">Link kopiert ✓</span>`
+        : `<span class="cl">Raum</span> <b>${esc(S.code)}</b> <span class="ci">⧉ kopieren</span>`}</span>
     ${S.round?`<span class="chip">Runde ${S.round}</span>`:""}
     <span class="chip">${S.players.filter(p=>p.online).length} online</span>
     <span class="chip btn only-mobile" id="plbtn">Spieler (${S.players.length})</span>
@@ -24,6 +27,16 @@ function frame(main,players,chat){
   </div><div class="scrim" id="scrim"></div>`;
 }
 function wire(){
+  const cc=el("codechip");
+  if(cc) cc.onclick=async()=>{
+    const link=location.origin+location.pathname+"?r="+S.code;
+    if(await inZwischenablage(link)){
+      copiedUntil=Date.now()+2000; beep("soft"); render();
+      setTimeout(render,2100);
+    }else{
+      prompt("Link zum Teilen:",link);          // letzter Ausweg: von Hand kopieren
+    }
+  };
   const shut=()=>document.body.classList.remove("pl-open");
   const pb=el("plbtn"); if(pb) pb.onclick=()=>document.body.classList.toggle("pl-open");
   const sb=el("sndbtn"); if(sb) sb.onclick=()=>{ soundOn=!soundOn; LS.set("fi_sound",soundOn); if(soundOn) beep("soft"); render(); };
@@ -112,9 +125,9 @@ function viewLobby(){
   const link=location.origin+location.pathname+"?r="+S.code;
   const on=S.players.filter(p=>p.online).length;
   paint(HEAD+frame(
-    `<div class="card glow code-hero rise"><div class="lbl">Raum-Code</div><div class="val">${esc(S.code)}</div>
-       <button id="cp" class="sec">Einladungslink kopieren</button></div>
-     ${on<3?`<div class="card rise note" style="margin-top:0">Es fehlen noch ${3-on} Spieler – ab 3 geht es los.</div>`:""}
+    `<div class="card rise note" style="margin-top:0">
+       ${on<3?`Es fehlen noch ${3-on} Spieler – ab 3 geht es los. `:""}Tippe oben auf <b>Raum ${esc(S.code)}</b>, um den Einladungslink zu kopieren.</div>`+
+     `
      <div class="card rise"><h2>Fragen-Kategorien</h2>
        ${isHost?`<div class="note" style="margin-top:0">Nichts ausgewählt heißt: alle Kategorien. Sonst wird nur aus den gewählten gezogen.</div>
          <div class="katgrid">${KATEGORIEN.map(k=>{
@@ -177,10 +190,6 @@ function viewLobby(){
      ${exitBtn()}`,
     playersCard("lobby"),chatCard()));
   wire();
-  el("cp").onclick=async e=>{
-    try{ await navigator.clipboard.writeText(link); e.target.textContent="Link kopiert ✓"; }
-    catch(_){ prompt("Link zum Teilen:",link); }
-  };
   if(el("notif")) el("notif").onclick=askNotify;
   /* Kategorien umschalten – wirkt sofort auf den Vorrat. */
   app.querySelectorAll("[data-kat]").forEach(b=>b.onclick=()=>{

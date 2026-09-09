@@ -63,6 +63,29 @@ let screen="start";      // start | invite | connecting | game | error | kicked
 let errMsg="",banner="";
 let draftAnswer="",draftChat="",chatOpen=LS.get("fi_chatopen",true),chatSeen=0;
 let skinOpen=LS.get("fi_skinopen",false);
+let copiedUntil=0;                 /* zeigt kurz "Link kopiert" in der Raum-Pille */
+
+/* Kopiert Text in die Zwischenablage. Die moderne Schnittstelle verlangt einen
+   sicheren Kontext und eine echte Nutzergeste; klappt sie nicht, wird der aeltere
+   Weg ueber ein verstecktes Textfeld versucht. */
+async function inZwischenablage(text){
+  try{
+    if(navigator.clipboard&&window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(_){}
+  try{
+    const t=document.createElement("textarea");
+    t.value=text; t.setAttribute("readonly","");
+    t.style.cssText="position:fixed;top:-1000px;left:0;opacity:0";
+    document.body.appendChild(t);
+    t.select(); t.setSelectionRange(0,text.length);
+    const ok=document.execCommand("copy");
+    t.remove();
+    return ok;
+  }catch(_){ return false; }
+}
 let retryTimer=null,retries=0;
 
 const url=new URL(location.href);
