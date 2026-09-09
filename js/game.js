@@ -47,6 +47,20 @@ function wire(){
   const th=el("chathead");
   if(th) th.onclick=()=>{ chatOpen=!chatOpen; LS.set("fi_chatopen",chatOpen); render(); };
   wireExit();
+  const ceb=el("ceb");
+  if(ceb) ceb.onclick=()=>{ chatEmojiOpen=!chatEmojiOpen; render();
+    setTimeout(()=>{ const f=el("ci"); if(f&&chatEmojiOpen) f.focus(); },30); };
+  /* Emoji an der Schreibmarke einfuegen, nicht einfach hinten anhaengen. */
+  app.querySelectorAll("[data-ce]").forEach(b=>b.onclick=()=>{
+    const f=el("ci"); if(!f) return;
+    const e=b.dataset.ce;
+    const a=f.selectionStart==null?f.value.length:f.selectionStart;
+    const z=f.selectionEnd==null?f.value.length:f.selectionEnd;
+    f.value=f.value.slice(0,a)+e+f.value.slice(z);
+    draftChat=f.value;
+    f.focus();
+    try{ f.setSelectionRange(a+e.length,a+e.length); }catch(_){}
+  });
   const cs=el("csend"), ci=el("ci");
   if(cs&&ci){
     const send=()=>{ const v=ci.value.trim(); if(!v) return; draftChat=""; ci.value=""; act({t:"chat",text:v}); ci.focus(); };
@@ -69,7 +83,11 @@ function chatCard(){
         ${avatar(Object.assign({pid:m.pid,name:m.name},S.players.find(x=>x.pid===m.pid)||{}))}
         <div class="bub"><div class="au">${esc(m.name)}</div><div class="tx">${esc(m.text)}</div></div></div>`).join("")
       :`<div class="chat-empty">Noch nichts geschrieben.</div>`}</div>
-    <div class="chat-in" style="flex:none"><input id="ci" maxlength="300" placeholder="Nachricht…" autocomplete="off" enterkeyhint="send">
+    ${chatEmojiOpen?`<div class="chatemo" id="cemo">${CHATEMOJIS.map(e=>
+        `<button data-ce="${e}">${e}</button>`).join("")}</div>`:""}
+    <div class="chat-in" style="flex:none">
+      <button id="ceb" class="emobtn" title="Emoji einfügen">${chatEmojiOpen?"✕":"🙂"}</button>
+      <input id="ci" maxlength="300" placeholder="Nachricht…" autocomplete="off" enterkeyhint="send">
       <button id="csend">→</button></div></div>`;
 }
 /* Spielerliste – je nach Phase mit Punkten, Status oder Kick-Knopf. */

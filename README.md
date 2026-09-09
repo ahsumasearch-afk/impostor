@@ -44,14 +44,15 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
   daneben ein Feld für eine freie Minutenzahl von 2 bis 60. Nur der Host darf das.
 - **Teamwertung:** Erwischt die Mehrheit den Lügner, bekommt jeder im Team +1.
   Kommt er durch, bekommt er allein +1 – auch wer richtig getippt hat, geht dann leer aus.
-- **Aussehen:** Name, Emoji aus 236 Symbolen, 16 kräftige Farbtöne plus
+- **Aussehen:** Name, Emoji aus 492 Symbolen, 16 kräftige Farbtöne plus
   freier Farbwähler – im Warteraum jederzeit änderbar (nicht der Name).
 - **Ergebnis:** Bei jedem Namen stehen seine Frage, seine Antwort und für wen er
   gestimmt hat – die abweichende Frage des Lügners ist farblich abgesetzt.
 - **Raum-Code oben in der Leiste:** antippen kopiert den Einladungslink.
 - **Warteraum:** alle Abschnitte sind zuklappbar und zeigen zugeklappt eine
   Zusammenfassung. „Runde starten" sitzt auf dem Desktop unter der Spielerliste.
-- **Chat pro Raum**, Kick-Funktion für den Host, Raum verlassen für alle.
+- **Chat pro Raum** mit eigenem Emoji-Feld (142 Reaktionen, werden an der
+  Schreibmarke eingefügt), Kick-Funktion für den Host, Raum verlassen für alle.
 - **Neuladen ändert nichts:** Punkte, Name und Platz bleiben, auch beim Host.
 - **Kein Flackern:** Die Oberfläche wird nicht neu aufgebaut, sondern es wird nur
   das geändert, was sich unterscheidet – Eingaben, Cursor und Scrollposition bleiben.
