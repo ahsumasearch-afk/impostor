@@ -26,7 +26,9 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
 
 ## Funktionen
 
-- **850 Fragenpaare**, 1700 verschiedene Fragen, keine doppelt. Der Host zieht
+- **850 Fragenpaare**, 1700 verschiedene Fragen, keine doppelt. Beide Fragen eines
+  Paares verlangen dieselbe Art Antwort – nie Zahl gegen Wort, nie Uhrzeit gegen
+  Begriff, nie Dauer gegen Anzahl. Sonst wäre der Lügner an der Antwortform erkennbar. Der Host zieht
   ohne Zurücklegen – erst wenn der gewählte Vorrat durch ist, fängt er von vorn an.
 - **17 Kategorien mit je genau 50 Paaren:** Zahlen & Mengen, Alltag & Routine,
   Essen & Trinken, Orte & Reisen, Menschen, Über dich, Dinge & Geld, Arbeit & Schule,
@@ -40,7 +42,7 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
   daneben ein Feld für eine freie Minutenzahl von 2 bis 60. Nur der Host darf das.
 - **Teamwertung:** Erwischt die Mehrheit den Lügner, bekommt jeder im Team +1.
   Kommt er durch, bekommt er allein +1 – auch wer richtig getippt hat, geht dann leer aus.
-- **Aussehen:** Name, Emoji aus über 100 Symbolen, 16 kräftige Farbtöne plus
+- **Aussehen:** Name, Emoji aus 236 Symbolen, 16 kräftige Farbtöne plus
   freier Farbwähler – im Warteraum jederzeit änderbar (nicht der Name).
 - **Ergebnis:** Bei jedem Namen stehen seine Frage, seine Antwort und für wen er
   gestimmt hat – die abweichende Frage des Lügners ist farblich abgesetzt.
