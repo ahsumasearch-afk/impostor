@@ -28,7 +28,9 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
 
 - **850 Fragenpaare**, 1700 verschiedene Fragen, keine doppelt. Beide Fragen eines
   Paares verlangen dieselbe Art Antwort – nie Zahl gegen Wort, nie Uhrzeit gegen
-  Begriff, nie Dauer gegen Anzahl. Sonst wäre der Lügner an der Antwortform erkennbar. Der Host zieht
+  Begriff, nie Dauer gegen Anzahl. Auch die Größenordnung passt zusammen.
+  Gleichzeitig sind die beiden Fragen nie bedeutungsgleich, sonst wäre die Runde
+  langweilig: Sie liegen nah beieinander, zielen aber auf etwas anderes. Der Host zieht
   ohne Zurücklegen – erst wenn der gewählte Vorrat durch ist, fängt er von vorn an.
 - **17 Kategorien mit je genau 50 Paaren:** Zahlen & Mengen, Alltag & Routine,
   Essen & Trinken, Orte & Reisen, Menschen, Über dich, Dinge & Geld, Arbeit & Schule,

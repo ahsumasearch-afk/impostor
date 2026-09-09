@@ -389,11 +389,12 @@ function viewResult(){
              <span class="who">${esc(p.name)}${p.pid===myPid?" · du":""}${luegner?'<span class="tag imp">Lügner</span>':""}</span>
              ${bekommen?`<span class="pts">${bekommen} ${bekommen===1?"Stimme":"Stimmen"}</span>`:""}
            </div>
-           <div class="qzeile ${luegner?"imp":""}">${esc(p.question||"—")}</div>
-           <div class="azeile">${esc(p.answer||"keine Antwort")}</div>
-           <div class="vzeile">${
-             ziel?`stimmte für <b style="color:${richtig?"var(--ok)":"var(--tx)"}">${esc(ziel.name)}</b>${richtig?' <span style="color:var(--ok)">✓</span>':""}`
-                 :`hat nicht abgestimmt`}</div>
+           <div class="unten">
+             <span class="azeile">${esc(p.answer||"keine Antwort")}</span>
+             <span class="vzeile">${
+               ziel?`→ ${esc(ziel.name)}${richtig?' <span style="color:var(--ok)">✓</span>':""}`
+                   :"nicht abgestimmt"}</span>
+           </div>
          </div>`;
        }).join("")}</div>
      ${isHost?`<button id="nx">Nächste Runde</button><button id="lb" class="sec">Zurück in den Warteraum</button>`

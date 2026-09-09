@@ -305,15 +305,16 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
   .chip.only-mobile{display:none}
 }
 
-/* --- Ergebnis: pro Spieler Frage, Antwort und Stimme --- */
-.rundenzeile{padding:13px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+/* --- Ergebnis: kompakte Zeile je Spieler --- */
+.rundenzeile{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07)}
 .rundenzeile:last-child{border:0;padding-bottom:2px}
 .rundenzeile:first-child{padding-top:2px}
-.rundenzeile .kopf{display:flex;align-items:center;gap:11px;margin-bottom:8px}
-.rundenzeile .kopf .who{flex:1;min-width:0;font-size:15px;font-weight:700;color:var(--tx);
+.rundenzeile .kopf{display:flex;align-items:center;gap:10px;margin-bottom:3px}
+.rundenzeile .kopf .av{width:30px;height:30px;border-radius:9px;font-size:13px}
+.rundenzeile .kopf .av.emo{font-size:16px}
+.rundenzeile .kopf .who{flex:1;min-width:0;font-size:14.5px;font-weight:700;color:var(--tx);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rundenzeile .qzeile{font-size:12.5px;font-weight:600;color:var(--mut);
-  border-left:2px solid var(--line2);padding-left:9px;margin-bottom:5px}
-.rundenzeile .qzeile.imp{color:#fda4af;border-left-color:rgba(251,113,133,.6)}
-.rundenzeile .azeile{font-size:17px;font-weight:700;line-height:1.3;padding-left:11px;word-break:break-word}
-.rundenzeile .vzeile{font-size:13.5px;color:var(--mut);padding-left:11px;margin-top:4px}
+.rundenzeile .unten{display:flex;align-items:baseline;gap:10px;padding-left:40px}
+.rundenzeile .azeile{font-size:17px;font-weight:700;line-height:1.25;min-width:0;
+  word-break:break-word;flex:1}
+.rundenzeile .vzeile{flex:none;font-size:13px;color:var(--mut);white-space:nowrap}
