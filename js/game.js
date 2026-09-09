@@ -11,7 +11,6 @@ function topbar(){
         ? `<span class="ok">Link kopiert ✓</span>`
         : `<span class="cl">Raum</span> <b>${esc(S.code)}</b> <span class="ci">⧉ kopieren</span>`}</span>
     ${S.round?`<span class="chip">Runde ${S.round}</span>`:""}
-    <span class="chip">${S.players.filter(p=>p.online).length} online</span>
     <span class="chip btn only-mobile" id="plbtn">Spieler (${S.players.length})</span>
     <span class="chip btn" id="sndbtn" title="Ton an- oder ausschalten">${soundOn?"🔊 Ton an":"🔇 Ton aus"}</span>
     ${S.deadline?`<span class="chip clock"><span class="clockv">${fmtTime(timeLeft()||0)}</span></span>`:""}
@@ -139,8 +138,9 @@ function zeitKurz(v){ return v?secLabel(v):"ohne"; }
 
 function viewLobby(){
   const on=S.players.filter(p=>p.online).length;
-  const alle=S.kat.length===0;
-  const aktiv=id=>alle||S.kat.indexOf(id)>=0;
+  const alle=S.kat.length===KATEGORIEN.length;
+  const keine=S.kat.length===0;
+  const aktiv=id=>S.kat.indexOf(id)>=0;
 
   const katInhalt=`<div class="katgrid">${KATEGORIEN.map(k=>{
       const anzahl=PAIRS.filter(x=>x[2]===k.id).length;
@@ -149,9 +149,9 @@ function viewLobby(){
         <span class="katn">${esc(k.name)}<small>${anzahl} Paare</small></span>
         <span class="hak">${aktiv(k.id)?"✓":""}</span></button>`;
     }).join("")}</div>
-    ${isHost?`<div class="row" style="margin-top:11px">
-       <button id="katalle" class="sec" style="margin:0">Alle auswählen</button>
-       <button id="katnix" class="sec" style="margin:0">Nur eine</button>
+    ${isHost?`<div class="katact">
+       <button id="katalle" class="sec">Alle auswählen</button>
+       <button id="katnix" class="sec">Alle abwählen</button>
      </div>`:""}`;
 
   const zeitInhalt=isHost
@@ -186,12 +186,15 @@ function viewLobby(){
      </div>`;
 
   const startKnopf=n=>isHost
-    ? `<button id="go${n}" ${on<3?"disabled":""}>Runde starten</button>`
+    ? `<button id="go${n}" ${on<3||!S.vorrat?"disabled":""}>Runde starten</button>`+
+      (S.vorrat?"":`<div class="note" style="text-align:center">Wähle mindestens eine Fragen-Kategorie aus.</div>`)
     : `<div class="card tight center note rise" style="margin:0 0 13px">Warte auf den Host…</div>`;
 
   paint(HEAD+frame(
     klapp("kat","Fragen-Kategorien",katInhalt,
-          alle?`alle · ${S.vorrat} Paare`:`${S.kat.length} von ${KATEGORIEN.length} · ${S.vorrat} Paare`)+
+          keine?`keine gewählt`
+               :alle?`alle · ${S.vorrat} Paare`
+                    :`${S.kat.length} von ${KATEGORIEN.length} · ${S.vorrat} Paare`)+
     klapp("zeit","Zeitlimits",zeitInhalt,
           `${zeitKurz(S.tAnswer)} · ${zeitKurz(S.tTalk)} · ${zeitKurz(S.tVote)}`)+
     klapp("skin","Dein Aussehen",skinInhalt,"",
@@ -219,15 +222,13 @@ function viewLobby(){
   if(isHost){
     app.querySelectorAll("[data-kat]").forEach(b=>b.onclick=()=>{
       const id=b.dataset.kat;
-      let liste=S.kat.length?S.kat.slice():KATEGORIEN.map(k=>k.id);
+      const liste=S.kat.slice();
       const i=liste.indexOf(id);
-      if(i>=0) liste.splice(i,1); else liste.push(id);
-      if(!liste.length) liste=[id];                     // mindestens eine Kategorie
-      if(liste.length===KATEGORIEN.length) liste=[];    // wieder alle
+      if(i>=0) liste.splice(i,1); else liste.push(id);  // frei an- und abwaehlbar
       act({t:"kat",ids:liste});
     });
-    if(el("katalle")) el("katalle").onclick=()=>act({t:"kat",ids:[]});
-    if(el("katnix")) el("katnix").onclick=()=>act({t:"kat",ids:[KATEGORIEN[0].id]});
+    if(el("katalle")) el("katalle").onclick=()=>act({t:"kat",ids:KATEGORIEN.map(k=>k.id)});
+    if(el("katnix"))  el("katnix").onclick=()=>act({t:"kat",ids:[]});
   }
 
   app.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>act({t:"timer",which:b.dataset.t,sec:+b.dataset.sec}));

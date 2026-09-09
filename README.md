@@ -14,7 +14,7 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
 |---|---|
 | `index.html` | Grundgerüst, lädt Stil und Skripte |
 | `css/style.css` | Gesamte Gestaltung |
-| `js/questions.js` | Die 157 Fragenpaare und die 11 Kategorien |
+| `js/questions.js` | Die 850 Fragenpaare und die 17 Kategorien |
 | `js/core.js` | Speicher, Identität, Hilfsfunktionen, gemeinsamer Zustand |
 | `js/host.js` | Spiellogik – der Host hält den Zustand |
 | `js/net.js` | Verbindungsaufbau und Herzschlag zwischen den Geräten |
@@ -26,11 +26,13 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
 
 ## Funktionen
 
-- **157 Fragenpaare**, 314 verschiedene Fragen, keine doppelt. Der Host zieht
-  ohne Zurücklegen – erst wenn alle durch sind, fängt der Vorrat von vorn an.
-- **11 Kategorien** (Zahlen, Alltag, Essen, Orte, Menschen, Über dich, Dinge,
-  Arbeit, Medien, Feste, Fantasie). Der Host wählt im Warteraum aus, woraus
-  gezogen wird; nichts ausgewählt heißt alle. Die anderen sehen die Auswahl.
+- **850 Fragenpaare**, 1700 verschiedene Fragen, keine doppelt. Der Host zieht
+  ohne Zurücklegen – erst wenn der gewählte Vorrat durch ist, fängt er von vorn an.
+- **17 Kategorien mit je genau 50 Paaren:** Zahlen & Mengen, Alltag & Routine,
+  Essen & Trinken, Orte & Reisen, Menschen, Über dich, Dinge & Geld, Arbeit & Schule,
+  Internet & Apps, Feste & Jahreszeiten, Sport, Musik, Filme & Serien, Games, Tiere,
+  Autos & Fahren, Kultur & Wissen. Der Host wählt im Warteraum aus, woraus gezogen wird;
+  ohne Auswahl lässt sich keine Runde starten. Die anderen sehen die Auswahl.
 - Sobald alle geantwortet oder abgestimmt haben, geht es sofort weiter –
   ein laufender Timer wird nicht abgewartet.
 - **Frage überspringen:** Der Host kann jederzeit eine neue Frage ziehen.

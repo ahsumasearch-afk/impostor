@@ -14,7 +14,9 @@ function claim(code,restore,attempt){
     if(restore){
       H=restore; H.kicked=H.kicked||[]; H.chat=H.chat||[];
       H.tAnswer=H.tAnswer||0; H.tTalk=H.tTalk||0; H.tVote=H.tVote||0;
-      H.used=H.used||[]; H.kat=H.kat||[];
+      H.used=H.used||[];
+      /* Frueher bedeutete eine leere Liste "alle" – jetzt steht sie ausdruecklich drin. */
+      if(!Array.isArray(H.kat)||!H.kat.length) H.kat=KATEGORIEN.map(function(k){return k.id;});
       const me=hp(myPid);
       if(me){ me.online=true; me.connId=null; myName=me.name; me.emoji=myEmoji||me.emoji||""; me.color=(myColor===0||myColor)?myColor:me.color; }
       else H.players.push({pid:myPid,name:myName,emoji:myEmoji,color:myColor,score:0,answer:null,vote:null,question:"",online:true,connId:null});

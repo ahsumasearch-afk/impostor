@@ -3,7 +3,8 @@
 function freshState(){
   return {phase:"lobby",round:0,players:[],mainQuestion:"",impostorId:null,
           tally:{},topIds:[],caught:false,chat:[],kicked:[],
-          tAnswer:0,tTalk:0,tVote:0,deadline:0,used:[],kat:[]};
+          tAnswer:0,tTalk:0,tVote:0,deadline:0,used:[],
+          kat:KATEGORIEN.map(function(k){return k.id;})};
 }
 const GRACE=18000;   // Reserve fuer stille Faelle
 const QUICK=4000;    // abgemeldet oder Herzschlag ausgeblieben: nur kurz auf Rueckkehr warten
@@ -73,12 +74,14 @@ function hostKick(pid){
   setTimeout(()=>{ try{c&&c.close();}catch(_){} },300);
   checkAnswers(); checkVotes(); broadcast();
 }
-/* Alle Paare, die zu den gewaehlten Kategorien gehoeren. Leere Auswahl = alle. */
+/* Alle Paare, die zu den gewaehlten Kategorien gehoeren.
+   Die Auswahl ist immer ausdruecklich – ist sie leer, gibt es keinen Vorrat
+   und der Host kann die Runde nicht starten. */
 function vorrat(){
-  const aktiv=(H.kat&&H.kat.length)?H.kat:null;
+  const aktiv=H.kat||[];
   const liste=[];
-  for(let i=0;i<PAIRS.length;i++) if(!aktiv||aktiv.indexOf(PAIRS[i][2])>=0) liste.push(i);
-  return liste.length?liste:PAIRS.map(function(_,i){return i;});
+  for(let i=0;i<PAIRS.length;i++) if(aktiv.indexOf(PAIRS[i][2])>=0) liste.push(i);
+  return liste;
 }
 /* Zieht ein Fragenpaar ohne Zuruecklegen. Erst wenn der gewaehlte Vorrat
    erschoepft ist, wird nur dieser Teil wieder freigegeben – die Historie
@@ -112,6 +115,7 @@ function neueFrage(){
 }
 function hostStartRound(){
   if(H.players.filter(p=>p.online).length<3) return;
+  if(!vorrat().length) return;                 // ohne Kategorie gibt es keine Fragen
   H.round++; H.phase="answer"; neueFrage(); broadcast();
 }
 /* Setzt die Uhr fuer die neue Phase – 0 heisst: ohne Zeitlimit. */
