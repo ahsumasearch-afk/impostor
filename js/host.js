@@ -5,6 +5,7 @@ function freshState(){
           impIds:[],                 // die Luegner dieser Runde
           maxRounds:0,               // 0 = unbegrenzt
           impCount:1,                // gewuenschte Anzahl Luegner
+          impRandom:false,           // true = jede Runde neu auslosen
           tally:{},topIds:[],caught:false,chat:[],kicked:[],
           tAnswer:0,tTalk:0,tVote:0,deadline:0,used:[],
           kat:KATEGORIEN.map(function(k){return k.id;})};
@@ -110,7 +111,10 @@ function neueFrage(){
   if(!act.length) return;
   const pair=ziehePaar(), flip=Math.random()<.5;
   const main=flip?pair[1]:pair[0], other=flip?pair[0]:pair[1];
-  const wieViele=Math.min(H.impCount||1,maxLuegner(act.length));
+  const grenze=maxLuegner(act.length);
+  const wieViele=H.impRandom
+    ? 1+((Math.random()*grenze)|0)          // jede Runde neu ausgelost
+    : Math.min(H.impCount||1,grenze);
   const topf=act.slice();
   H.impIds=[];
   for(let i=0;i<wieViele&&topf.length;i++){
@@ -202,7 +206,7 @@ function publicState(){
     impIds:(H.phase==="result"||H.phase==="podium")?(H.impIds||[]):[],
     impostorQuestion:(H.phase==="result"||H.phase==="podium")
       ?((hp((H.impIds||[])[0])||{}).question||""):"",
-    maxRounds:H.maxRounds||0, impCount:H.impCount||1,
+    maxRounds:H.maxRounds||0, impCount:H.impCount||1, impRandom:!!H.impRandom,
     maxImp:maxLuegner(H.players.filter(p=>p.online).length),
     tally:H.tally,topIds:H.topIds,caught:H.caught,chat:H.chat,
     tAnswer:H.tAnswer||0, tTalk:H.tTalk||0, tVote:H.tVote||0, deadline:H.deadline||0,
@@ -271,7 +275,11 @@ function hostHandle(connId,pid,msg){
       } return;
     case "imps":
       if(pid===myPid&&H.phase==="lobby"&&typeof msg.n==="number"){
-        H.impCount=Math.max(1,Math.min(Math.round(msg.n),maxLuegner(H.players.filter(p=>p.online).length)));
+        if(msg.n===0){ H.impRandom=true; }      // 0 steht fuer "jede Runde auslosen"
+        else {
+          H.impRandom=false;
+          H.impCount=Math.max(1,Math.min(Math.round(msg.n),maxLuegner(H.players.filter(p=>p.online).length)));
+        }
         broadcast();
       } return;
     case "reset":                                 // Punkte auf null fuer einen fairen Neustart

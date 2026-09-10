@@ -55,7 +55,7 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
   und Emoji-Reaktionen, dazu ein Emoji-Feld (142 Zeichen, an der Schreibmarke eingefügt)
 - **Spielverlauf:** Der Host legt die Rundenzahl fest (3, 5, 10, eigene Zahl oder
   unbegrenzt) und wie viele Lügner es gibt – höchstens so viele, dass ein ehrlicher
-  Spieler übrig bleibt. Nach der letzten Runde folgt das Podium.
+  Spieler übrig bleibt. Über den Würfel wird die Anzahl jede Runde neu ausgelost. Nach der letzten Runde folgt das Podium.
 - **Punkte zurücksetzen** über die Kopfleiste, wenn neue Leute dazukommen, Kick-Funktion für den Host, Raum verlassen für alle.
 - **Neuladen ändert nichts:** Punkte, Name und Platz bleiben, auch beim Host.
 - **Kein Flackern:** Die Oberfläche wird nicht neu aufgebaut, sondern es wird nur

@@ -367,3 +367,13 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .podium .p2{padding-top:16px;background:rgba(255,255,255,.08)}
 .podium .p3{background:linear-gradient(160deg,rgba(217,119,6,.22),rgba(217,119,6,.05));
   border-color:rgba(217,119,6,.45)}
+
+/* --- Eigene Farbe als letzter Kreis in der Reihe --- */
+.colgrid .eigen{position:relative;aspect-ratio:1;border-radius:50%;cursor:pointer;
+  display:grid;place-items:center;border:2px solid transparent;transition:.14s;
+  background:conic-gradient(#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#a855f7,#ec4899,#ef4444)}
+.colgrid .eigen.on{border-color:#fff;transform:scale(1.1)}
+.colgrid .eigen span{font-size:17px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);
+  pointer-events:none;line-height:1}
+.colgrid .eigen input{position:absolute;inset:0;opacity:0;width:100%;height:100%;
+  padding:0;border:0;cursor:pointer}

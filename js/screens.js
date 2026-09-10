@@ -24,11 +24,10 @@ function viewStart(){
      <label style="margin-top:16px">Deine Farbe</label>
      <div class="colgrid" id="col">${FARBEN.map(c=>
         `<button data-c="${c}" class="${myColor===c?"on":""}" title="Farbe"
-          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}</div>
-     <div class="pickrow">
-       <input type="color" id="colpick">
-       <span class="note" style="margin:0">Oder eine eigene Farbe wählen – sie wird genau so übernommen.</span>
-     </div>
+          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}
+       <label class="eigen ${FARBEN.indexOf(myColor)<0&&myColor?"on":""}" title="Eigene Farbe">
+         <input type="color" id="colpick"><span>+</span>
+       </label></div>
      <div id="prev"></div>
    </div>
    <div class="startgrid">
@@ -95,11 +94,10 @@ function viewInvite(){
      <label style="margin-top:16px">Deine Farbe</label>
      <div class="colgrid" id="col">${FARBEN.map(c=>
         `<button data-c="${c}" class="${myColor===c?"on":""}" title="Farbe"
-          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}</div>
-     <div class="pickrow">
-       <input type="color" id="colpick">
-       <span class="note" style="margin:0">Oder eine eigene Farbe wählen – sie wird genau so übernommen.</span>
-     </div>
+          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}
+       <label class="eigen ${FARBEN.indexOf(myColor)<0&&myColor?"on":""}" title="Eigene Farbe">
+         <input type="color" id="colpick"><span>+</span>
+       </label></div>
      <div id="prev"></div>
      <button id="jn">Raum beitreten</button>
    </div>

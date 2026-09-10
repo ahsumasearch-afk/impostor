@@ -219,13 +219,15 @@ function viewLobby(){
        </div>
        <div class="note">Nach der letzten Runde wird das Podium gezeigt. ∞ heißt: es geht weiter, bis ihr aufhört.</div>
        <label style="margin-top:16px">Anzahl der Lügner</label>
-       <div class="seg" id="impseg" style="grid-template-columns:repeat(${Math.min(S.maxImp,5)},1fr)">${
+       <div class="seg" id="impseg" style="grid-template-columns:repeat(${Math.min(S.maxImp,5)+1},1fr)">${
          Array.from({length:Math.min(S.maxImp,5)},(_,i)=>i+1).map(n=>
-          `<button data-imps="${n}" class="${S.impCount===n?"on":""}">${n}</button>`).join("")}</div>
-       <div class="note">Bei ${S.players.filter(p=>p.online).length} Spielern sind bis zu ${S.maxImp} möglich –
-         ein ehrlicher Spieler muss übrig bleiben.</div>`
+          `<button data-imps="${n}" class="${!S.impRandom&&S.impCount===n?"on":""}">${n}</button>`).join("")}
+         <button data-imps="0" class="${S.impRandom?"on":""}" title="Jede Runde neu auslosen">🎲</button></div>
+       <div class="note">${S.impRandom
+         ?`Jede Runde wird neu ausgelost – mal einer, mal mehrere.`
+         :`Bei ${zahlwort(S.players.filter(p=>p.online).length,"Spieler","Spielern")} sind bis zu ${S.maxImp} möglich – ein ehrlicher Spieler muss übrig bleiben.`}</div>`
     : `<div class="zeile"><span class="pts">Runden</span><b>${S.maxRounds?S.maxRounds:"ohne Ende"}</b></div>
-       <div class="zeile"><span class="pts">Lügner</span><b>${S.impCount}</b></div>`;
+       <div class="zeile"><span class="pts">Lügner</span><b>${S.impRandom?"zufällig":S.impCount}</b></div>`;
 
   const zeitInhalt=isHost
     ? ["answer","talk","vote"].map(k=>{
@@ -251,12 +253,10 @@ function viewLobby(){
      <label style="margin-top:14px">Farbe</label>
      <div class="colgrid" id="col">${FARBEN.map(c=>
         `<button data-c="${c}" class="${myColor===c?"on":""}"
-          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}</div>
-     <label for="colpick" style="margin-top:14px">Eigene Farbe</label>
-     <div class="pickrow">
-       <input type="color" id="colpick">
-       <span class="note" style="margin:0">Beliebigen Ton wählen – der Avatar übernimmt ihn sofort.</span>
-     </div>`;
+          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}
+       <label class="eigen ${FARBEN.indexOf(myColor)<0&&myColor?"on":""}" title="Eigene Farbe">
+         <input type="color" id="colpick"><span>+</span>
+       </label></div>`;
 
   const startKnopf=n=>isHost
     ? `<button id="go${n}" ${on<3||!S.vorrat?"disabled":""}>Runde starten</button>`+
@@ -269,7 +269,7 @@ function viewLobby(){
                :alle?`alle · ${S.vorrat} Paare`
                     :`${S.kat.length} von ${KATEGORIEN.length} · ${S.vorrat} Paare`)+
     klapp("spiel","Spielverlauf",spielInhalt,
-          `${S.maxRounds?S.maxRounds+" Runden":"ohne Ende"} · ${S.impCount} ${S.impCount===1?"Lügner":"Lügner"}`)+
+          `${S.maxRounds?S.maxRounds+" Runden":"ohne Ende"} · ${S.impRandom?"zufällig viele":S.impCount} Lügner`)+
     klapp("zeit","Zeitlimits",zeitInhalt,
           `${zeitKurz(S.tAnswer)} · ${zeitKurz(S.tTalk)} · ${zeitKurz(S.tVote)}`)+
     klapp("skin","Dein Aussehen",skinInhalt,"",
