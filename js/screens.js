@@ -15,29 +15,31 @@ function viewStart(){
      <div class="note" style="margin-top:0">Du warst als <b>${esc(room.name)}</b> dabei.</div>
      <button id="back">Wieder beitreten</button>
      <button id="backx" class="sec">Verwerfen</button></div>`:"")+
-  `<div class="card rise">
-     <label for="nm">Dein Name</label>
-     <input id="nm" maxlength="16" placeholder="z.B. Alex" autocomplete="nickname">
-     <label style="margin-top:16px">Dein Emoji</label>
-     <div class="emogrid" id="emo">${EMOJIS.map(e=>
-        `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
-     <label style="margin-top:16px">Deine Farbe</label>
-     <div class="colgrid" id="col">${FARBEN.map(c=>
-        `<button data-c="${c}" class="${myColor===c?"on":""}" title="Farbe"
-          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}
-       <label class="eigen ${FARBEN.indexOf(myColor)<0&&myColor?"on":""}" title="Eigene Farbe">
-         <input type="color" id="colpick"><span>+</span>
-       </label></div>
-     <div id="prev"></div>
-   </div>
-   <div class="startgrid">
-     <div class="card rise"><h2>Neuen Raum aufmachen</h2>
-       <div class="note" style="margin-top:0">Du bist der Host, stellst die Zeiten ein und startest die Runden.</div>
-       <button id="mk">Raum erstellen</button></div>
-     <div class="card rise"><h2>Einem Raum beitreten</h2>
-       <label for="cd" style="margin-top:10px">Raum-Code</label>
-       <input id="cd" class="code" maxlength="4" placeholder="XXXX" autocomplete="off" autocapitalize="characters">
-       <button id="jn" class="sec">Beitreten</button></div>
+  `<div class="startwrap">
+     <div class="startaktionen">
+       <div class="card rise"><h2>Neuen Raum aufmachen</h2>
+         <div class="note" style="margin-top:0">Du bist der Host, stellst die Zeiten ein und startest die Runden.</div>
+         <button id="mk">Raum erstellen</button></div>
+       <div class="card rise"><h2>Einem Raum beitreten</h2>
+         <label for="cd" style="margin-top:10px">Raum-Code</label>
+         <input id="cd" class="code" maxlength="4" placeholder="XXXX" autocomplete="off" autocapitalize="characters">
+         <button id="jn" class="sec">Beitreten</button></div>
+     </div>
+     <div class="card rise startprofil">
+       <label for="nm">Dein Name</label>
+       <input id="nm" maxlength="16" placeholder="z.B. Alex" autocomplete="nickname">
+       <label style="margin-top:16px">Dein Emoji</label>
+       <div class="emogrid" id="emo">${EMOJIS.map(e=>
+          `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
+       <label style="margin-top:16px">Deine Farbe</label>
+       <div class="colgrid" id="col">${FARBEN.map(c=>
+          `<button data-c="${c}" class="${myColor===c?"on":""}" title="Farbe"
+            style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}
+         <label class="eigen ${FARBEN.indexOf(myColor)<0&&myColor?"on":""}" title="Eigene Farbe">
+           <input type="color" id="colpick"><span>+</span>
+         </label></div>
+       <div id="prev"></div>
+     </div>
    </div>
    <div class="foot">Läuft direkt zwischen euren Geräten.<br>Kein Konto, keine Daten auf einem Server.</div></div>`);
 

@@ -377,3 +377,14 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
   pointer-events:none;line-height:1}
 .colgrid .eigen input{position:absolute;inset:0;opacity:0;width:100%;height:100%;
   padding:0;border:0;cursor:pointer}
+
+/* --- Startseite: links die Aktionen, rechts das Profil --- */
+.startwrap{display:grid;gap:14px}
+.startaktionen{display:grid;gap:13px;align-content:start;order:2}   /* auf dem Handy unter dem Profil */
+.startaktionen .card{margin:0}
+.startprofil{margin:0;order:1}
+@media(min-width:900px){
+  .startwrap{grid-template-columns:340px minmax(0,1fr);gap:16px;align-items:start}
+  .startaktionen{order:1}
+  .startprofil{order:2}
+}
