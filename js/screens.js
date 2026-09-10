@@ -22,9 +22,13 @@ function viewStart(){
      <div class="emogrid" id="emo">${EMOJIS.map(e=>
         `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
      <label style="margin-top:16px">Deine Farbe</label>
-     <div class="colgrid" id="col">${FARBEN.map(h=>
-        `<button data-c="${h}" class="${myColor===h?"on":""}" title="Farbe"
-          style="background:linear-gradient(140deg,hsl(${h} 70% 55%),hsl(${(h+42)%360} 70% 42%))"></button>`).join("")}</div>
+     <div class="colgrid" id="col">${FARBEN.map(c=>
+        `<button data-c="${c}" class="${myColor===c?"on":""}" title="Farbe"
+          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}</div>
+     <div class="pickrow">
+       <input type="color" id="colpick">
+       <span class="note" style="margin:0">Oder eine eigene Farbe wählen – sie wird genau so übernommen.</span>
+     </div>
      <div id="prev"></div>
    </div>
    <div class="startgrid">
@@ -55,12 +59,17 @@ function viewStart(){
     app.querySelectorAll("#emo [data-e]").forEach(x=>x.classList.toggle("on",x.dataset.e===myEmoji));
     prev();
   });
-  app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>{
-    myColor=+b.dataset.c;
-    LS.set("fi_color",myColor);
-    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",+x.dataset.c===myColor));
+  const setzeFarbe=c=>{
+    myColor=c; LS.set("fi_color",c);
+    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",x.dataset.c===myColor));
     prev();
-  });
+  };
+  app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>setzeFarbe(b.dataset.c));
+  const pick=el("colpick");
+  if(pick){
+    if(document.activeElement!==pick) pick.value=(typeof myColor==="string"?myColor:FARBEN[0]);
+    pick.oninput=()=>setzeFarbe(pick.value);
+  }
 
   const name=()=>{ const n=(nm.value.trim()||"Spieler").slice(0,16); LS.set("fi_name",nm.value.trim()); return n; };
   el("mk").onclick=()=>{ LS.delMine("fi_host"); LS.delMine("fi_room"); startHost(name()); };
@@ -84,9 +93,13 @@ function viewInvite(){
      <div class="emogrid" id="emo">${EMOJIS.map(e=>
         `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
      <label style="margin-top:16px">Deine Farbe</label>
-     <div class="colgrid" id="col">${FARBEN.map(h=>
-        `<button data-c="${h}" class="${myColor===h?"on":""}" title="Farbe"
-          style="background:linear-gradient(140deg,hsl(${h} 70% 55%),hsl(${(h+42)%360} 70% 42%))"></button>`).join("")}</div>
+     <div class="colgrid" id="col">${FARBEN.map(c=>
+        `<button data-c="${c}" class="${myColor===c?"on":""}" title="Farbe"
+          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}</div>
+     <div class="pickrow">
+       <input type="color" id="colpick">
+       <span class="note" style="margin:0">Oder eine eigene Farbe wählen – sie wird genau so übernommen.</span>
+     </div>
      <div id="prev"></div>
      <button id="jn">Raum beitreten</button>
    </div>
@@ -106,12 +119,17 @@ function viewInvite(){
     app.querySelectorAll("#emo [data-e]").forEach(x=>x.classList.toggle("on",x.dataset.e===myEmoji));
     prev();
   });
-  app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>{
-    myColor=+b.dataset.c;
-    LS.set("fi_color",myColor);
-    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",+x.dataset.c===myColor));
+  const setzeFarbe=c=>{
+    myColor=c; LS.set("fi_color",c);
+    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",x.dataset.c===myColor));
     prev();
-  });
+  };
+  app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>setzeFarbe(b.dataset.c));
+  const pick=el("colpick");
+  if(pick){
+    if(document.activeElement!==pick) pick.value=(typeof myColor==="string"?myColor:FARBEN[0]);
+    pick.oninput=()=>setzeFarbe(pick.value);
+  }
   const go=()=>{ const n=(nm.value.trim()||"Spieler").slice(0,16); LS.set("fi_name",nm.value.trim()); startClient(inviteCode,n); };
   el("jn").onclick=go; nm.onkeydown=e=>{ if(e.key==="Enter") go(); };
   el("own").onclick=()=>{ inviteCode=""; screen="start"; render(); };

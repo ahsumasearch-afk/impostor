@@ -249,9 +249,9 @@ function viewLobby(){
      <div class="emogrid" id="emo">${EMOJIS.map(e=>
         `<button data-e="${e}" class="${myEmoji===e?"on":""}">${e}</button>`).join("")}</div>
      <label style="margin-top:14px">Farbe</label>
-     <div class="colgrid" id="col">${FARBEN.map(h=>
-        `<button data-c="${h}" class="${myColor===h?"on":""}"
-          style="background:linear-gradient(140deg,hsl(${h} 95% 62%),hsl(${(h+40)%360} 95% 46%))"></button>`).join("")}</div>
+     <div class="colgrid" id="col">${FARBEN.map(c=>
+        `<button data-c="${c}" class="${myColor===c?"on":""}"
+          style="background:linear-gradient(140deg,${c},${mische(c,.65)})"></button>`).join("")}</div>
      <label for="colpick" style="margin-top:14px">Eigene Farbe</label>
      <div class="pickrow">
        <input type="color" id="colpick">
@@ -339,25 +339,23 @@ function viewLobby(){
     app.querySelectorAll("#emo [data-e]").forEach(x=>x.classList.toggle("on",x.dataset.e===myEmoji));
     merkeSkin();
   });
-  app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>{
-    myColor=+b.dataset.c;
-    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",+x.dataset.c===myColor));
+  const waehleFarbe=c=>{
+    myColor=c;
+    app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.toggle("on",x.dataset.c===myColor));
     merkeSkin();
-  });
+  };
+  app.querySelectorAll("#col [data-c]").forEach(b=>b.onclick=()=>waehleFarbe(b.dataset.c));
   const pick=el("colpick");
   if(pick){
-    /* Der Wert wird nur gesetzt, solange niemand im Waehler steht – sonst
-       springt die Auswahl beim naechsten Neuzeichnen zurueck. */
-    if(document.activeElement!==pick) pick.value=hueZuHex(myColor==null?265:myColor);
+    /* Wert nur setzen, solange niemand im Waehler steht – sonst springt die
+       Auswahl beim naechsten Abgleich mit dem Raum zurueck. */
+    if(document.activeElement!==pick) pick.value=(typeof myColor==="string"?myColor:FARBEN[0]);
     pick.oninput=()=>{                       // waehrend des Ziehens nur die Vorschau
-      myColor=hexZuHue(pick.value);
+      myColor=pick.value;
       app.querySelectorAll("#col [data-c]").forEach(x=>x.classList.remove("on"));
       zeigeVorschau();
     };
-    pick.onchange=()=>{                      // erst beim Loslassen an alle melden
-      myColor=hexZuHue(pick.value);
-      merkeSkin();
-    };
+    pick.onchange=()=>waehleFarbe(pick.value);   // beim Loslassen an alle melden
   }
 
   ["go","go2"].forEach(id=>{ if(el(id)) el(id).onclick=()=>act({t:"start"}); });

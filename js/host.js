@@ -43,7 +43,7 @@ function hostJoin(connId,pid,name,emoji,color){
     p.connId=connId; p.online=true; p.offSince=0; p.quick=false; p.lastSeen=Date.now();
     if(name) p.name=uniqueName(name,pid);
     if(emoji) p.emoji=emoji;
-    if(color===0||color) p.color=color;
+    if(color===0||color) p.color=color;   // Zahl (alt) oder Farbwert wie "#22c55e"
   }else{
     p={pid,name:uniqueName(name||"Spieler",pid),emoji:emoji||"",color:(color===0||color)?color:null,score:0,answer:null,vote:null,question:"",
        online:true,connId,lastSeen:Date.now(),waiting:H.phase!=="lobby"};
@@ -258,7 +258,8 @@ function hostHandle(connId,pid,msg){
       if(pid===myPid&&H.phase==="answer"){ neueFrage(); broadcast(); } return;
     case "skin":                                  // Emoji/Farbe im Warteraum aendern
       if(msg.emoji!==undefined) p.emoji=String(msg.emoji||"").slice(0,8);
-      if(msg.color===null||typeof msg.color==="number") p.color=msg.color;
+      if(msg.color===null||typeof msg.color==="number"||
+         (typeof msg.color==="string"&&/^#[0-9a-fA-F]{6}$/.test(msg.color))) p.color=msg.color;
       broadcast(); return;
     case "tovote": if(pid===myPid&&H.phase==="reveal"){H.phase="vote";setDeadline("vote");broadcast();} return;
     case "next":   if(pid===myPid&&H.phase==="result") hostStartRound(); return;

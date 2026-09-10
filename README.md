@@ -44,8 +44,8 @@ Kein Build, kein Backend – statische Dateien, die der Browser direkt lädt:
   daneben ein Feld für eine freie Minutenzahl von 2 bis 60. Nur der Host darf das.
 - **Teamwertung:** Erwischt die Mehrheit den Lügner, bekommt jeder im Team +1.
   Kommt er durch, bekommt er allein +1 – auch wer richtig getippt hat, geht dann leer aus.
-- **Aussehen:** Name, Emoji aus 492 Symbolen, 16 kräftige Farbtöne plus
-  freier Farbwähler – im Warteraum jederzeit änderbar (nicht der Name).
+- **Aussehen:** Name, Emoji aus 615 Symbolen, 16 Farbvorgaben plus freier
+  Farbwähler – die eigene Farbe wird exakt übernommen – im Warteraum jederzeit änderbar (nicht der Name).
 - **Ergebnis:** Bei jedem Namen stehen seine Frage, seine Antwort und für wen er
   gestimmt hat – die abweichende Frage des Lügners ist farblich abgesetzt.
 - **Raum-Code oben in der Leiste:** antippen kopiert den Einladungslink.
