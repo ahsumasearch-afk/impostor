@@ -324,7 +324,7 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
   background:rgba(255,255,255,.06);border:1px solid var(--line);box-shadow:none;color:var(--tx)}
 .emobtn:hover:not(:disabled){background:rgba(255,255,255,.12)}
 .chatemo{display:grid;grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:5px;
-  max-height:170px;overflow-y:auto;margin-bottom:9px;padding:8px;border-radius:13px;
+  max-height:230px;overflow-y:auto;margin-bottom:9px;padding:8px;border-radius:13px;
   background:rgba(255,255,255,.04);border:1px solid var(--line);flex:none}
 .chatemo button{margin:0;padding:0;aspect-ratio:1;font-size:19px;line-height:1;border-radius:9px;
   background:transparent;border:0;box-shadow:none}
