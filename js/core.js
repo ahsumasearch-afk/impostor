@@ -171,6 +171,7 @@ let skinOpen=LS.get("fi_skinopen",false);
 let offeneKarten=LS.get("fi_offen",null)||{kat:false,zeit:false,skin:false,notif:false};
 let chatEmojiOpen=false;           /* Emoji-Feld im Chat auf- oder zugeklappt */
 let antwortAuf=null;               /* Nachricht, auf die gerade geantwortet wird */
+let menuFuer=null;                 /* Nachricht, deren Aktionen gerade offen sind */
 const REAKTIONEN=["👍","😂","❤️","😮","😢","🔥"];   /* Schnellreaktionen im Chat */
 const zahlwort=(n,ein,viele)=>n+" "+(n===1?ein:viele);
 const uhrzeit=ts=>{ const d=new Date(ts||Date.now());

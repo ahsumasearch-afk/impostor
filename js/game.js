@@ -64,15 +64,32 @@ function wire(){
     f.focus();
     try{ f.setSelectionRange(a+e.length,a+e.length); }catch(_){}
   });
+  /* Tippen auf eine Nachricht oeffnet ihre Aktionen – funktioniert auch auf dem Handy,
+     und da die Leiste im Fluss steht, kann sie nicht abgeschnitten werden. */
+  app.querySelectorAll(".msg .bub").forEach(b=>b.onclick=e=>{
+    if(e.target.closest("button")) return;             // Knoepfe darin nicht abfangen
+    const id=b.parentElement.dataset.mid;
+    menuFuer=(menuFuer===id)?null:id;
+    render();
+    /* Die geoeffnete Leiste in den sichtbaren Bereich holen – sonst liegt sie
+       auf schmalen Bildschirmen unterhalb des Chatfensters. */
+    if(menuFuer){
+      const m=app.querySelector(".mact");
+      if(m) m.scrollIntoView({block:"nearest"});
+    }
+  });
   app.querySelectorAll("[data-antw]").forEach(b=>b.onclick=()=>{
     const m=(S.chat||[]).find(x=>x.id===b.dataset.antw);
     if(!m) return;
     antwortAuf={id:m.id,name:m.name,text:m.text.slice(0,90)};
+    menuFuer=null;
     render(); setTimeout(()=>{ const f=el("ci"); if(f) f.focus(); },30);
   });
   if(el("antwx")) el("antwx").onclick=()=>{ antwortAuf=null; render(); };
-  app.querySelectorAll("[data-re]").forEach(b=>b.onclick=()=>
-    act({t:"react",id:b.dataset.re,emoji:b.dataset.remo}));
+  app.querySelectorAll("[data-re]").forEach(b=>b.onclick=()=>{
+    menuFuer=null;
+    act({t:"react",id:b.dataset.re,emoji:b.dataset.remo});
+  });
   const cs=el("csend"), ci=el("ci");
   if(cs&&ci){
     const send=()=>{ const v=ci.value.trim(); if(!v) return;
@@ -109,10 +126,10 @@ function chatCard(){
             <div class="tx">${esc(m.text)}</div>
             ${reaktionen.length?`<div class="reakt">${reaktionen.map(e=>
                `<button class="rbtn ${(m.r[e]||[]).indexOf(myPid)>=0?"on":""}" data-re="${esc(m.id)}" data-remo="${e}">${e} ${m.r[e].length}</button>`).join("")}</div>`:""}
-            <div class="mact">
-              <button data-antw="${esc(m.id)}" title="Antworten">↩</button>
+            ${menuFuer===m.id?`<div class="mact">
+              <button data-antw="${esc(m.id)}">↩ Antworten</button>
               ${REAKTIONEN.map(e=>`<button data-re="${esc(m.id)}" data-remo="${e}">${e}</button>`).join("")}
-            </div>
+            </div>`:""}
           </div></div>`;
       }).join("")
       :`<div class="chat-empty">Noch nichts geschrieben.</div>`}</div>

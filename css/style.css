@@ -342,11 +342,15 @@ button.pick:hover:not(:disabled){border-color:rgba(139,92,246,.6);background:rgb
 .rbtn{width:auto;margin:0;padding:2px 7px;font-size:12px;border-radius:99px;box-shadow:none;
   background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--tx)}
 .rbtn.on{background:rgba(139,92,246,.35);border-color:rgba(139,92,246,.7)}
-.mact{display:none;position:absolute;top:-14px;right:6px;gap:2px;padding:3px 5px;border-radius:99px;
-  background:#171b26;border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:3}
-.msg:hover .mact{display:flex}
-.mact button{width:auto;margin:0;padding:1px 4px;font-size:14px;background:none;border:0;box-shadow:none;line-height:1.2}
-.mact button:hover{transform:scale(1.25)}
+/* Aktionsleiste steht im Fluss unter der Nachricht – so wird sie vom
+   scrollbaren Chat nicht abgeschnitten und ist auch per Fingertipp erreichbar. */
+.msg .bub{cursor:pointer}
+.mact{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:7px;padding-top:7px;
+  border-top:1px solid rgba(255,255,255,.12)}
+.mact button{width:auto;margin:0;padding:3px 8px;font-size:15px;line-height:1.2;border-radius:8px;
+  background:rgba(255,255,255,.08);border:1px solid var(--line);box-shadow:none;color:var(--tx)}
+.mact button:first-child{font-size:12.5px;font-weight:600}
+.mact button:hover{background:rgba(139,92,246,.35)}
 .antwortbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:7px 10px;
   border-radius:11px;background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.4);flex:none}
 .antwortbar .zitat{flex:1;margin:0;border-left-color:#c4b5fd}
