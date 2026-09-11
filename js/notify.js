@@ -94,4 +94,8 @@ function announce(){
   updateTitle();
 }
 
-const HEAD=`<div class="brand"><span class="mark">🕵️</span><h1>Fragen-<em>Impostor</em></h1></div>`;
+/* Der Weg zurueck zur Spielauswahl. Der Impostor liegt in einem eigenen
+   Repo, deshalb die vollstaendige Adresse statt eines relativen Pfades. */
+const HUB="https://ahsumasearch-afk.github.io/spielraum/";
+const HEAD=`<a class="zurueck" href="${HUB}"><span class="pf">←</span>Zurück zum Spielraum</a>
+<div class="brand"><span class="mark">🕵️</span><h1>Fragen-<em>Impostor</em></h1></div>`;
