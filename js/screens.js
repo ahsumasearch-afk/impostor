@@ -41,7 +41,7 @@ function viewStart(){
        <div id="prev"></div>
      </div>
    </div>
-   <div class="foot">Läuft direkt zwischen euren Geräten.<br>Kein Konto, keine Daten auf einem Server.</div></div>`);
+   <div class="foot">Kein Konto, kein Download – nur der Raum-Code.<br>Läuft in jedem Netz: WLAN, Mobilfunk, quer durcheinander.</div></div>`);
 
   const nm=el("nm"),cd=el("cd");
   nm.value=LS.get("fi_name","")||"";

@@ -30,24 +30,24 @@ function armGrace(ms){
 function saveHost(){
   if(!H||!roomCode) return;
   LS.set("fi_host",{code:roomCode,ts:Date.now(),owner:myPid,
-    state:{...H,players:H.players.map(p=>({...p,connId:null,online:false}))}});
+    state:{...H,players:H.players.map(p=>({...p,online:false}))}});
 }
-function sendTo(p,msg){ const c=p.connId&&conns[p.connId]; if(c&&c.open){ try{c.send(msg);}catch(_){} } }
+function sendTo(p,msg){ sendeAn(p.pid,msg); }
 
 function hostJoin(connId,pid,name,emoji,color){
   if(H.kicked.includes(pid)){
-    const c=conns[connId]; if(c&&c.open) c.send({t:"denied"});
+    sendeAn(pid,{t:"denied"});
     return;
   }
   let p=hp(pid);
   if(p){                                   // Wiederkehrer: alles bleibt erhalten
-    p.connId=connId; p.online=true; p.offSince=0; p.quick=false; p.lastSeen=Date.now();
+    p.connId=pid; p.online=true; p.offSince=0; p.quick=false; p.lastSeen=Date.now();
     if(name) p.name=uniqueName(name,pid);
     if(emoji) p.emoji=emoji;
     if(color===0||color) p.color=color;   // Zahl (alt) oder Farbwert wie "#22c55e"
   }else{
     p={pid,name:uniqueName(name||"Spieler",pid),emoji:emoji||"",color:(color===0||color)?color:null,score:0,answer:null,vote:null,question:"",
-       online:true,connId,lastSeen:Date.now(),waiting:H.phase!=="lobby"};
+       online:true,connId:pid,lastSeen:Date.now(),waiting:H.phase!=="lobby"};
     H.players.push(p);
   }
   broadcast();
@@ -59,23 +59,14 @@ function uniqueName(n,pid){
   for(let i=2;i<40;i++) if(!taken.includes((n+" "+i).toLowerCase())) return n+" "+i;
   return n;
 }
-function hostOffline(connId){
-  const p=H.players.find(x=>x.connId===connId);
-  delete conns[connId];
-  if(!p) return;
-  // Wer sich abgemeldet hat (Tab geschlossen/neu geladen), haelt die Runde nur kurz auf.
-  const saidBye=p.quick&&Date.now()-(p.offSince||0)<3000;
-  p.online=false; p.connId=null;                 // NICHT entfernen – Punkte bleiben erhalten
-  if(!saidBye){ p.quick=false; p.offSince=Date.now(); }
-  armGrace(saidBye?QUICK+400:GRACE+500); broadcast();
-}
+/* Ein Abgang faellt jetzt nur noch durch ausbleibende Lebenszeichen auf
+   (siehe hostSweep) oder weil sich jemand ausdruecklich abmeldet. */
 function hostKick(pid){
   const p=hp(pid); if(!p||pid===myPid) return;
   H.kicked.push(pid);
   sendTo(p,{t:"kick"});
-  const c=p.connId&&conns[p.connId];
+
   H.players=H.players.filter(x=>x.pid!==pid);
-  setTimeout(()=>{ try{c&&c.close();}catch(_){} },300);
   checkAnswers(); checkVotes(); broadcast();
 }
 /* Alle Paare, die zu den gewaehlten Kategorien gehoeren.
@@ -196,7 +187,7 @@ function hostSweep(){
   const before=H.phase;
   checkAnswers(); checkVotes();
   if(changed||H.phase!==before){ broadcast(); return; }
-  if(++beatCount%3===0) Object.values(conns).forEach(c=>{ if(c.open){ try{c.send({t:"hb"});}catch(_){} } });
+  if(++beatCount%3===0) H.players.forEach(p=>{ if(p.pid!==myPid&&p.online) sendeAn(p.pid,{t:"hb"}); });
 }
 function publicState(){
   const show=H.phase==="reveal"||H.phase==="vote"||H.phase==="result";
@@ -229,11 +220,11 @@ function broadcast(){
 }
 function hostHandle(connId,pid,msg){
   if(!H||!msg) return;
-  if(msg.t==="join"){ hostJoin(connId,msg.pid,msg.name,msg.emoji,msg.color); return; }
+  if(msg.t==="join"){ hostJoin(msg.pid,msg.pid,msg.name,msg.emoji,msg.color); return; }
   const p=hp(pid); if(!p) return;
   p.lastSeen=Date.now();
   if(msg.t==="ping"){                       // Herzschlag: zurueck aus kurzer Stille
-    if(!p.online){ p.online=true; p.quick=false; p.offSince=0; if(connId) p.connId=connId; broadcast(); }
+    if(!p.online){ p.online=true; p.quick=false; p.offSince=0; broadcast(); }
     return;
   }
   switch(msg.t){
@@ -311,7 +302,9 @@ function hostHandle(connId,pid,msg){
       checkAnswers(); checkVotes(); broadcast(); return;
   }
 }
+/* Eine Handlung ausloesen. Der Host rechnet selbst, alle anderen schicken
+   sie ueber das Relais an ihn – mit Absender, damit er weiss, wer gemeint ist. */
 function act(msg){
-  if(isHost) hostHandle(null,myPid,msg);
-  else if(hostConn&&hostConn.open){ try{hostConn.send(msg);}catch(_){} }
+  if(isHost) hostHandle(myPid,myPid,msg);
+  else if(roomCode) sende(tHost(roomCode),Object.assign({from:myPid},msg));
 }

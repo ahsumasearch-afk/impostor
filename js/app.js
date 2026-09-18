@@ -2,10 +2,9 @@
 
 /* Beim Verlassen der Seite aktiv abmelden – dann wartet die Runde nicht unnoetig. */
 window.addEventListener("pagehide",()=>{
-  try{ if(!isHost&&hostConn&&hostConn.open) hostConn.send({t:"bye"}); }catch(_){}
-  /* Die Verbindung sauber schliessen. Sonst haelt der Verbindungsdienst den
-     Raum-Code noch fest und ein sofortiges Zurueckkommen scheitert daran. */
-  try{ peer&&peer.destroy(); }catch(_){}
+  try{ if(!isHost&&roomCode) sende(tHost(roomCode),{t:"bye",from:myPid}); }catch(_){}
+  /* Sauber abmelden, damit der Raum nicht als verwaist stehen bleibt. */
+  try{ teardown(); }catch(_){}
 });
 (function boot(){
   const savedHost=LS.get("fi_host",null), savedRoom=LS.get("fi_room",null);
